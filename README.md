@@ -28,6 +28,8 @@ Or from a local clone:
 | `/smithy:forge` | **Implementation** — dispatches the forger (or jigsmith, in TDD mode) per task, with a review after each task |
 | `/smithy:jig` | **TDD implementation** — RED→GREEN→REFACTOR per requirement with verbatim failing-test evidence; forge's `implementation.tdd` config chooses jig vs plain forge |
 | `/smithy:inspect` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
+| `/smithy:guild` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
+| `/smithy:commission` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
 | `/smithy:anneal` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
 | `/smithy:temper` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
 | `/smithy:ring-test` | **Unit tests** (ring test = tapping metal to hear flaws) |
@@ -68,6 +70,29 @@ Each pipeline role maps to a model + effort in `docs/smithy/config.json` (projec
 The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort maps to an injected prompt banner — it is prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=sonnet/medium`.
 
 TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence verified from commit ordering) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
+
+## Personas — the guild and its patrons
+
+Reviews can fan out to **parallel persona reviewers** (one inspector agent, different persona overlays):
+
+- **Masters** (craft — is it built right?): engineer, security, QA, UI/UX, SRE
+- **Patrons** (experience — is it the right thing?): end-user, product, marketing, support
+
+`/smithy:guild` selects the roster by diff content (engineer + security always; the rest conditional), dispatches them in parallel, dedupes and cross-verifies findings, and issues one verdict: **PRODUCTION_READY** requires both craft and experience clean of Critical/High. `/smithy:commission` adds **project-level personas** (your system's actual roles — e.g. patient, receptionist, admin) that wield uses to run QA flows per role, including cross-persona permission checks.
+
+## Git guard rails
+
+A deterministic PreToolUse hook (`scripts/guard.sh`) enforces git safety in smithy-managed projects — prompt rules can be rationalized away, exit codes can't:
+
+- `git push` — blocked; needs a live user yes per push (one-shot token)
+- `git commit` — blocked unless the job's plan gate was approved (approval = job-scoped commit grant, auto-revoked at job end)
+- History rewrites (`--amend`, `rebase`, `reset --hard`, `branch -D`, `clean -f`, force flags) and `rm -rf` on absolute/`~`/`..` paths — always blocked
+- Non-smithy projects: the hook stands down entirely
+- Your own `CLAUDE.md` rules override smithy protocol wherever they conflict (creed §0)
+
+## Inter-agent envelope
+
+Every brief/report/verdict opens with a machine-readable YAML envelope (`references/envelope.md`): kind, job, unit, status, confidence, `key_facts[]`, `concerns[]`, `next_action`. Controllers copy unresolved key facts forward into the next brief — critical information survives every hop instead of dying in prose. `scripts/envelope.sh` parses and validates it.
 
 ## Supported stacks
 

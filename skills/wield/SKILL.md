@@ -28,9 +28,20 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    from the user (standalone). Each flow: steps, expected outcome, edge and
    error variants. No invented requirements — flows trace to the spec.
 
+   **Persona mode — automatic when `docs/smithy/personas/` exists** (created
+   by `/smithy:commission`; offer to run it if absent on a multi-role app):
+   - Derive flows PER persona from each persona's jobs-to-be-done, executed
+     within that persona's permission boundary (their credentials/role).
+   - Add **cross-persona checks**: every `CANNOT` in a persona file becomes a
+     test that the action/data is actually denied — a CANNOT that succeeds
+     is a Critical finding, whatever else passes.
+   - Severity uses the persona's own calibration section (a finding's cost
+     is the persona's stake, not the developer's guess).
+   - The report groups findings by persona; the health score stays global.
+
 4. **Write the test brief** (`briefs/wield.md`): playbook path, flows, tier,
-   report path `reports/test-qa.md`. Dispatch `smithy:temperer` (routing role
-   `testing`).
+   persona file paths when in persona mode, report path `reports/test-qa.md`.
+   Dispatch `smithy:temperer` (routing role `testing`).
 
 5. **Score the report.** Findings carry: severity (Critical/High/Medium/Low),
    confidence 1–10 (9–10 = verified against code/behavior), and fingerprint

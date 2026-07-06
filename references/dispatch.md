@@ -49,7 +49,24 @@ report file and returns only: status, one-line summary, concerns.
 
 ## 3. Brief template (written by blueprint/anneal/test skills)
 
+Every brief and report opens with the smithy envelope — the full contract is
+`${CLAUDE_PLUGIN_ROOT}/references/envelope.md` (read it once per session).
+**Controller rule:** copy every unresolved `key_facts`/`concerns` item from
+consumed reports forward into the next brief's envelope.
+
 ```markdown
+---smithy
+schema: 1
+kind: brief
+job: <slug>
+unit: task-N
+artifacts:
+  - docs/smithy/jobs/<slug>/briefs/task-N.md
+key_facts:
+  - <carried forward from prior reports — or empty list []>
+concerns: []
+next_action: "implement task-N"
+---
 # Task N: <title>
 ## Context files (read these, nothing else)
 - path/to/file.ts — why it matters
@@ -61,8 +78,8 @@ report file and returns only: status, one-line summary, concerns.
 <type>: <description>
 ## Report
 Write your report to: docs/smithy/jobs/<slug>/reports/task-N-impl.md
-Use EXACTLY the report template from your agent instructions.
-The first body line MUST be `Status: <STATUS>` — it is machine-read.
+Open it with a smithy envelope (kind: impl-report) per your agent
+instructions, then the body with `Status: <STATUS>` as its first line.
 Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ```
 
@@ -75,10 +92,14 @@ Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 | NEEDS_CONTEXT | Blocked on a specific question | Answer it (or ask the user), re-dispatch |
 | BLOCKED | Cannot proceed (env, permissions, contradiction) | Resolve or escalate to user; consider model bump |
 
-**Defensive rule:** if a report's `Status:` line is missing or not in this
-vocabulary, treat it as DONE_WITH_CONCERNS — read the full report before
-proceeding. Never crash the pipeline on a malformed report; never assume it
-means DONE.
+Read a report's status from its envelope:
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/envelope.sh get <report> status`.
+
+**Defensive rule:** if a report's envelope is missing/unparseable (and no
+`Status:` body line rescues it), treat it as DONE_WITH_CONCERNS — read the
+full report before proceeding, and note the format violation when
+re-dispatching that agent. Never crash the pipeline on a malformed report;
+never assume it means DONE.
 
 ## 4b. TDD variant (jigsmith)
 

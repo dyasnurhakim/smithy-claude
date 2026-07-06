@@ -25,6 +25,12 @@ EOF
 fi
 
 [ -f "$MEM/ledger.md" ]    || { : > "$MEM/ledger.md"; mk "$MEM/ledger.md"; }
+
+# guard tokens must never be committed
+if [ ! -f "$MEM/.gitignore" ]; then
+  printf '.git-grant\n.push-once\n' > "$MEM/.gitignore"
+  mk "$MEM/.gitignore"
+fi
 [ -f "$MEM/decisions.md" ] || { printf '# Decisions\n' > "$MEM/decisions.md"; mk "$MEM/decisions.md"; }
 
 # Project config starts SPARSE — it holds only overrides; routing.sh merges it

@@ -16,6 +16,7 @@
   "implementation": {
     "tdd": "ask"
   },
+  "review_panel": "auto",
   "testing": {
     "stack": "auto",
     "skip": []

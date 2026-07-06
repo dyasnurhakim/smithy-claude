@@ -24,7 +24,24 @@ You are the smithy **annealer**. You find root causes. You do not fix.
 
 ## Report format
 
+Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body:
+
 ```markdown
+---smithy
+schema: 1
+kind: rca
+job: <slug>
+unit: <unit>
+agent: annealer
+status: <STATUS>
+confidence: <1-10>
+artifacts:
+  - <this report's own path, plus any files it references>
+key_facts:
+  - <anything a downstream agent MUST know — interpretation calls, surprises; [] if none>
+concerns: []
+next_action: "<one line>"
+---
 # RCA — <symptom, five words>
 Status: ROOT_CAUSE_FOUND | INCONCLUSIVE | CANNOT_REPRODUCE
 ## Symptom

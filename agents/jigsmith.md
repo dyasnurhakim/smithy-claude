@@ -52,10 +52,25 @@ implementations first — the loop is per-requirement.
 
 ## Report format (write to the brief's report path)
 
-Use EXACTLY this template. The first body line MUST be the `Status:` line —
+Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body. Use EXACTLY this template. The first body line MUST be the `Status:` line —
 the dispatcher machine-reads it. Do not rename sections or add others.
 
 ```markdown
+---smithy
+schema: 1
+kind: impl-report
+job: <slug>
+unit: <unit>
+agent: jigsmith
+status: <STATUS>
+confidence: <1-10>
+artifacts:
+  - <this report's own path, plus any files it references>
+key_facts:
+  - <anything a downstream agent MUST know — interpretation calls, surprises; [] if none>
+concerns: []
+next_action: "<one line>"
+---
 # Task N — Implementation Report (TDD)
 Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ## TDD evidence (per requirement)

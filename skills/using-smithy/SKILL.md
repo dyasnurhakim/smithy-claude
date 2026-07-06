@@ -27,6 +27,8 @@ say so and step out — but the check comes first.
 | An approved plan exists; implement it | `/smithy:forge` |
 | Implement test-first / "TDD this" / fixing a bug with a repro | `/smithy:jig` |
 | "Review this change/task/diff" | `/smithy:inspect` |
+| "Is this ready to ship?" / production-readiness / multi-perspective review | `/smithy:guild` |
+| "Who uses this system?" / define test personas / role-based QA | `/smithy:commission` |
 | A bug, unexpected failure, "why is this broken" | `/smithy:anneal` |
 | "Test everything" after implementation | `/smithy:temper` |
 | Unit tests only | `/smithy:ring-test` |
@@ -51,6 +53,9 @@ say so and step out — but the check comes first.
 5. **User instructions outrank smithy.** If the user explicitly says to skip
    a phase or gate, follow them — state what safeguard is being skipped, once,
    without nagging.
+6. **Git is guarded deterministically.** A PreToolUse hook blocks push,
+   history rewrites, and ungranted commits in smithy projects. A block is
+   the system working — report it, never work around it (creed §6).
 
 ## Red flags — these thoughts mean STOP
 

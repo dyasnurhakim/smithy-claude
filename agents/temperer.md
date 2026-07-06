@@ -24,7 +24,24 @@ stack playbook. You never touch production source.
 
 ## Report format
 
+Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body:
+
 ```markdown
+---smithy
+schema: 1
+kind: test-report
+job: <slug>
+unit: <unit>
+agent: temperer
+status: <STATUS>
+confidence: <1-10>
+artifacts:
+  - <this report's own path, plus any files it references>
+key_facts:
+  - <anything a downstream agent MUST know — interpretation calls, surprises; [] if none>
+concerns: []
+next_action: "<one line>"
+---
 # <scope> — Test Report
 Status: PASS | FAIL | PARTIAL
 ## Suites/cases added or modified

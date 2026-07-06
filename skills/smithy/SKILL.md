@@ -51,7 +51,9 @@ digraph smithy_pipeline {
     "Gate: plan approved?" -> "FORGE (/smithy:forge)" [label="approve"];
     "FORGE (/smithy:forge)" -> "Task failure x2?";
     "Task failure x2?" -> "ANNEAL (/smithy:anneal)" [label="yes, offer anneal"];
-    "Task failure x2?" -> "TEMPER (/smithy:temper)" [label="all tasks approved"];
+    "Task failure x2?" -> "GUILD (/smithy:guild)" [label="all tasks approved"];
+    "GUILD (/smithy:guild)" -> "TEMPER (/smithy:temper)" [label="PRODUCTION_READY (or panel=never)"];
+    "GUILD (/smithy:guild)" -> "FORGE (/smithy:forge)" [label="NOT_READY: finding briefs"];
     "ANNEAL (/smithy:anneal)" -> "FORGE (/smithy:forge)" [label="fix applied, return to broken unit"];
     "TEMPER (/smithy:temper)" -> "Verdict READY?";
     "Verdict READY?" -> "ANNEAL (/smithy:anneal)" [label="NOT READY"];
@@ -62,6 +64,13 @@ digraph smithy_pipeline {
 
 (ANNEAL exiting from a TEMPER failure re-runs ONLY the failing suite, then
 re-consolidates — not the whole TEMPER phase.)
+
+GUILD (`/smithy:guild`) is the production-readiness persona panel. It runs
+when the `review_panel` config is `auto` or `always` and is skipped when
+`never`. NOT_READY routes finding briefs back to FORGE; after fixes, only
+the personas that raised findings re-run. GUILD has no user gate of its own —
+its verdict feeds the flow; Medium/Low deferrals need explicit user
+acceptance recorded in decisions.md.
 
 ## Entry: resume or start
 
@@ -89,6 +98,12 @@ the effective config):
 3. Log: `ledger.sh append gate <slug> <phase> <APPROVED|REJECTED> <artifact>`
    and update STATE.md (phase, next step) — the gate line is what resume
    trusts, so it is written BEFORE announcing the next phase.
+4. **The BLUEPRINT gate carries commit authorization.** When presenting it,
+   say so explicitly: "Approving this plan authorizes its task commits."
+   On approval run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh grant <slug>`;
+   the guard hook blocks agent commits without it. At job end (Exit) run
+   `guard.sh revoke`. Push is NEVER granted here — a push needs its own live
+   user yes, then `guard.sh allow-push-once`.
 
 FORGE's per-task inspect verdicts are internal — no user gate per task. Two
 REJECTED cycles on one task escalates to the user (that escalation is not a
@@ -124,5 +139,7 @@ gate; it's a blocking question).
 
 ## Exit
 
-TEMPER verdict READY + final gate approved → update STATE.md
-(Phase: IDLE, next step: none), then offer `/smithy:handover`.
+TEMPER verdict READY + final gate approved → run
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh revoke` (commit authorization
+ends with the job), update STATE.md (Phase: IDLE, next step: none), then
+offer `/smithy:handover`.

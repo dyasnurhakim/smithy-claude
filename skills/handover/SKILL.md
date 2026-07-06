@@ -48,9 +48,13 @@ If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memor
 4. **Sync STATE.md.** Its `Next step` line must match the handoff's "Exact
    Next Step" verbatim. Update `Last event` too.
 
-5. **Log.** `ledger.sh append handover <job> handoff DONE jobs/<slug>/handoff.md`
+5. **Revoke git grants.** `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh revoke`
+   — a handoff ends the working session; the next session re-earns
+   authorization at its own gate.
 
-6. **Tell the user:** the handoff path, plus: "Next session: run /smithy —
+6. **Log.** `ledger.sh append handover <job> handoff DONE jobs/<slug>/handoff.md`
+
+7. **Tell the user:** the handoff path, plus: "Next session: run /smithy —
    it resumes from STATE.md and the ledger automatically."
 
 ## Rules

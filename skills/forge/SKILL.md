@@ -26,6 +26,10 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> loop STAR
 - Working tree is clean (`git status --short`) — each task commits atomically.
   Dirty tree → show the user what's dirty and ask; never stash silently.
 - The plan was approved (gate line in the ledger, or the user says so now).
+- A commit grant exists (`bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh status`).
+  The orchestrator grants it at the plan gate; running forge standalone, ask
+  the user ("authorize this plan's task commits?") and on yes run
+  `guard.sh grant <slug>`. Without it the guard hook blocks agent commits.
 
 ## Resume rule
 

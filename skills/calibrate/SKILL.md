@@ -37,7 +37,9 @@ else. You are the ONLY sanctioned writer of this file.
    "testing": `skip` subset of [ring-test, wield, proof, hone]. For
    "implementation": `tdd` ∈ {ask, always, never} — controls whether forge
    dispatches the `jigsmith` (TDD, RED→GREEN evidence) or the plain `forger`;
-   see `/smithy:jig` for the trade-off table.
+   see `/smithy:jig` for the trade-off table. For "review_panel":
+   `auto | always | never` — whether the guild panel fires at end-of-forge
+   (auto/always) or is skipped (never); it is the costliest smithy operation.
 
 5. **Merge-write only the changed keys** into `docs/smithy/config.json`,
    preserving all existing keys (including unknown ones — warn but never

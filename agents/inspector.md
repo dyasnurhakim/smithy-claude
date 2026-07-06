@@ -31,14 +31,31 @@ claim cannot be verified from the diff, say so explicitly — do not assume it.
 
 ## Report format
 
+Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body:
+
 ```markdown
+---smithy
+schema: 1
+kind: review-verdict
+job: <slug>
+unit: <unit>
+agent: inspector
+status: <STATUS>
+confidence: <1-10>
+artifacts:
+  - <this report's own path, plus any files it references>
+key_facts:
+  - <anything a downstream agent MUST know — interpretation calls, surprises; [] if none>
+concerns: []
+next_action: "<one line>"
+---
 # Task N — Review Report
 ## Verdict 1: Spec compliance — APPROVED | REJECTED
 - [x|✗] Requirement 1: <evidence: file:line or diff hunk>
 ## Verdict 2: Code quality — APPROVED | REJECTED
-| # | Severity | Confidence | Location | Finding |
-|---|----------|------------|----------|---------|
-| 1 | Critical|High|Medium|Low | N/10 | file:line | <what and why> |
+| # | Tag | Severity | Confidence | Location | Finding |
+|---|-----|----------|------------|----------|---------|
+| 1 | craft | Critical|High|Medium|Low | N/10 | file:line | <what and why> |
 ## Checks run (verbatim)
 - `<command>` → <trimmed output>
 ## Summary
@@ -49,6 +66,9 @@ Severity: Critical = breaks correctness/security/data. High = bug or spec gap.
 Medium = maintainability. Low = style. Confidence: 9–10 only when you verified
 by reading the code or running a check; below 7, phrase as a question.
 REJECT Verdict 2 only for Critical/High findings.
+Tag: `craft` by default; when dispatched with a persona overlay, use the tag
+the persona specifies (`craft` for masters, `experience` for patrons) and set
+the envelope `agent:` to `inspector:<persona-unit>`.
 
 ## Never
 

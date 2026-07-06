@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.0 — unreleased
+
+Personas, git guard rails, inter-agent envelope.
+
+- **Persona system**: 5 guild masters (engineer, security, qa, uiux, sre —
+  craft) + 4 patrons (end-user, product, marketing, support — experience)
+  as overlay files on the shared inspector agent
+- **`guild` skill**: production-readiness panel — roster selected by diff
+  content, personas dispatched in parallel, findings deduped/cross-verified,
+  one PRODUCTION_READY | NOT_READY verdict (craft AND experience must be
+  clean); wired between FORGE and TEMPER, `review_panel: auto|always|never`
+- **`commission` skill**: generates project-level test personas from real
+  user roles (evidence from spec/README/auth code + user interview);
+  wield gains persona mode (per-persona QA flows + cross-persona permission
+  checks — a CANNOT that succeeds is Critical)
+- **Git guard rails**: PreToolUse hook + `scripts/guard.sh` — push needs a
+  per-push live user yes (one-shot token), commits need the job's plan-gate
+  grant (auto-revoked at job end/handover), history rewrites and out-of-tree
+  `rm -rf` always blocked; enforcement only in smithy-managed projects;
+  creed §0: user CLAUDE.md rules override smithy protocol
+- **Inter-agent envelope**: YAML envelope on every brief/report/verdict
+  (kind/job/unit/status/confidence/key_facts/concerns/next_action) +
+  `scripts/envelope.sh`; controllers copy unresolved key_facts forward —
+  key information survives hops
+
 ## 0.3.0 — unreleased
 
 Multi-language stack support.
