@@ -26,15 +26,18 @@ else. You are the ONLY sanctioned writer of this file.
    If valid, skip to step 5.
 
 3. **Ask what to change.** Use AskUserQuestion (multiSelect): which roles to
-   change, plus "gates" and "testing" as extra options. If the user came with
-   a natural-language request ("use opus for review"), map it directly and
-   confirm instead of re-asking.
+   change, plus "gates", "testing", and "implementation" as extra options. If
+   the user came with a natural-language request ("use opus for review",
+   "always TDD"), map it directly and confirm instead of re-asking.
 
 4. **Per selected item, ask the new value.** One AskUserQuestion per role with
    model options (opus / sonnet / haiku / inherit) and effort options (low /
    medium / high / max); mark the current value. For "gates":
    `pause_between_phases` and `auto_fix_review_findings` (true/false). For
-   "testing": `skip` subset of [ring-test, wield, proof, hone].
+   "testing": `skip` subset of [ring-test, wield, proof, hone]. For
+   "implementation": `tdd` ∈ {ask, always, never} — controls whether forge
+   dispatches the `jigsmith` (TDD, RED→GREEN evidence) or the plain `forger`;
+   see `/smithy:jig` for the trade-off table.
 
 5. **Merge-write only the changed keys** into `docs/smithy/config.json`,
    preserving all existing keys (including unknown ones — warn but never

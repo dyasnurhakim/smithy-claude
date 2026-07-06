@@ -14,7 +14,7 @@ docs/smithy/
 └── jobs/<slug>/      # one dir per work item, slug = kebab-case feature name
     ├── spec.md              # assay output
     ├── plan.md              # blueprint output
-    ├── briefs/task-N.md     # per-task implementor briefs
+    ├── briefs/task-N.md     # per-task forger briefs
     ├── reports/             # task-N-impl.md, task-N-review.md, rca-*.md, test-*.md, temper-summary.md
     └── handoff.md           # handover output (overwritten each handoff)
 ```
@@ -48,8 +48,8 @@ Statuses: `STARTED DONE DONE_WITH_CONCERNS NEEDS_CONTEXT BLOCKED APPROVED REJECT
 | every skill, step 1 | STATE.md, `ledger.sh tail` | one `STARTED` ledger line |
 | assay | — | `jobs/<slug>/spec.md`, decisions.md (resolved ambiguities), STATE.md |
 | blueprint | spec.md | plan.md, briefs/task-*.md, decisions.md, STATE.md |
-| forge | plan.md, briefs | ledger per task, STATE.md (agent writes reports/) |
-| inspect | brief + review package | ledger verdict (agent writes reports/) |
+| forge / jig | plan.md, briefs, config `implementation.tdd` | ledger per task, STATE.md, decisions.md (TDD choice) (agent writes reports/) |
+| inspect | brief + review package | ledger verdict, controller notes appended to review report (agent writes reports/) |
 | anneal | failing report/context | decisions.md (fix decision), ledger (agent writes rca) |
 | test skills + temper | plan.md, stack-detect output | reports/test-*.md, temper-summary.md, ledger |
 | handover | STATE.md, ledger, reports | handoff.md, STATE.md |

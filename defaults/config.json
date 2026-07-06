@@ -13,6 +13,9 @@
     "pause_between_phases": true,
     "auto_fix_review_findings": false
   },
+  "implementation": {
+    "tdd": "ask"
+  },
   "testing": {
     "stack": "auto",
     "skip": []

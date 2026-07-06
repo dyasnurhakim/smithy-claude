@@ -1,7 +1,15 @@
 # Smithy Dispatch Protocol
 
-How skills dispatch the four smithy agents (`implementor`, `code-reviewer`,
-`debugger`, `tester`) with routed models, bounded context, and verifiable output.
+How skills dispatch the five smithy agents with routed models, bounded
+context, and verifiable output.
+
+| Agent | Role (routing) | Writes? | Dispatched by |
+|---|---|---|---|
+| `forger` | implementation | source + tests | forge, anneal (fix step) |
+| `jigsmith` | implementation | tests then source (TDD, RED→GREEN per requirement) | forge/jig when `implementation.tdd` selects TDD |
+| `inspector` | review | nothing (read-only + report) | inspect, forge (per task) |
+| `annealer` | debugging | nothing (read-only + report) | anneal |
+| `temperer` | testing | test files/configs only | ring-test, wield, proof, hone |
 
 ## 1. Resolve routing
 
@@ -72,15 +80,27 @@ vocabulary, treat it as DONE_WITH_CONCERNS — read the full report before
 proceeding. Never crash the pipeline on a malformed report; never assume it
 means DONE.
 
+## 4b. TDD variant (jigsmith)
+
+When `implementation.tdd` resolves to TDD for a task (see `/smithy:jig`):
+- The brief gains: `TDD mode: write the failing test FIRST for each
+  requirement (RED), then the minimal implementation (GREEN), commit per stage.`
+- The jigsmith's report adds a **TDD evidence** section: per requirement,
+  verbatim RED output, verbatim GREEN output, and the stage commits.
+- The controller verifies commit ordering from `git log <base>..HEAD`
+  (`test:` before `feat:`/`fix:` per requirement) — evidence, not trust.
+- NEEDS_CONTEXT on an untestable requirement is a brief defect: fix the brief
+  (blueprint) rather than pressuring the agent to implement without a jig.
+
 ## 5. Review discipline
 
-- Record BASE before dispatching an implementor:
+- Record BASE before dispatching a forger:
   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
 - Build the package from BASE..HEAD (never `HEAD~1` — it silently drops all
   but the last commit):
   `review-package.sh build <brief> <out> [impl-report]`
 - The reviewer reads the package file. Its prompt must include:
-  **"Do Not Trust the Report — the implementor's claims are unverified.
+  **"Do Not Trust the Report — the forger's claims are unverified.
   Verify each one against the diff and by running read-only checks."**
 - Two verdicts, each `APPROVED|REJECTED`: (1) spec compliance, per-requirement;
   (2) code quality, findings with `file:line`, severity
@@ -88,7 +108,7 @@ means DONE.
 
 ## 6. Retry and escalation
 
-- REJECTED review → re-dispatch implementor with the review report path added
+- REJECTED review → re-dispatch the forger with the review report path added
   to the brief. Maximum 2 fix cycles per unit; then escalate to the user with
   both reports.
 - NEEDS_CONTEXT twice on the same question → the question goes to the user.

@@ -152,3 +152,25 @@ Rules: writes only at skill start / unit completion / phase boundary; paths not 
 ## Verification (end-to-end)
 
 Final acceptance: on a clean scratch project, install smithy from the local marketplace, then run `/smithy` on a small real feature (e.g. add a validated endpoint to a fixture Express/FastAPI app) — pipeline must produce spec, plan, implemented+reviewed commits, temper summary with health score, and a handoff; kill and resume mid-run once; `/calibrate` must visibly change which model a dispatch uses.
+
+---
+
+## Amendments — v0.2.0 (2026-07-06, post-review)
+
+Gap analysis vs superpowers (adoption discipline, process pedagogy, TDD) led to:
+
+1. **Agents renamed to skill verbs**: implementor→forger, code-reviewer→inspector,
+   debugger→annealer, tester→temperer. New agent: **jigsmith** (TDD implementor).
+2. **TDD is first-class and choosable**: new `jig` skill + jigsmith agent
+   (RED→GREEN→REFACTOR per requirement, verbatim evidence, commit per stage,
+   ordering verified by inspector from git log). Config `implementation.tdd:
+   ask|always|never`; anneal fixes are always TDD (regression test = RED).
+3. **using-smithy meta-skill**, injected every session by the SessionStart hook
+   (superpowers' adoption pattern): routing table, priority rules, red-flag
+   rationalization table.
+4. **SKILL.md budget raised 150→300 lines** (user decision) — process-heavy
+   skills (smithy, assay, forge, anneal, blueprint, inspect) gained mandatory
+   checklists, red-flag tables, decomposition/finding-evaluation rules, and a
+   dot process graph in the orchestrator.
+5. End-of-branch review fixes (v0.1.0): portable sed, python3 guard + one-time
+   malformed-config warning, PARTIAL ledger status, forge path corrections.

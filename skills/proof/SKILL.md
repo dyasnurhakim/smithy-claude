@@ -34,7 +34,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> proof ST
    thresholds table, report path `reports/test-stress.md`. Include the run
    command for the service and the readiness check.
 
-3. **Dispatch `smithy:tester`** (routing role `testing`). The tester captures
+3. **Dispatch `smithy:temperer`** (routing role `testing`). The temperer captures
    tool output verbatim per phase — every number in the report must appear in
    tool output.
 

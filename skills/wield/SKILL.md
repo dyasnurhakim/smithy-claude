@@ -28,7 +28,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    error variants. No invented requirements — flows trace to the spec.
 
 4. **Write the test brief** (`briefs/wield.md`): playbook path, flows, tier,
-   report path `reports/test-qa.md`. Dispatch `smithy:tester` (routing role
+   report path `reports/test-qa.md`. Dispatch `smithy:temperer` (routing role
    `testing`).
 
 5. **Score the report.** Findings carry: severity (Critical/High/Medium/Low),

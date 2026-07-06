@@ -28,12 +28,12 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> ring-tes
    Requirements include: one behavior per test, AAA structure, descriptive
    names, no snapshot-everything, do not touch production source.
 
-4. **Dispatch `smithy:tester`** (routing role `testing`; effort banner; paths only).
+4. **Dispatch `smithy:temperer`** (routing role `testing`; effort banner; paths only).
 
 5. **Read the report.** FLAKY findings are failures of determinism — surface
-   them, never average them away. If the tester reports FAIL because a source
+   them, never average them away. If the temperer reports FAIL because a source
    change is needed, that goes to `/smithy:forge` (new task) or `/smithy:anneal`
-   (if unexpected) — never let the tester "fix" source.
+   (if unexpected) — never let the temperer "fix" source.
 
 6. **Log:** `ledger.sh append temper <slug> ring-test <PASS|FAIL|PARTIAL> reports/test-unit.md`
 

@@ -30,7 +30,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> hone STA
    fixed inputs (document them so the next run compares like-for-like),
    report path `reports/test-perf.md`.
 
-5. **Dispatch `smithy:tester`** (routing role `testing`). Every number in the
+5. **Dispatch `smithy:temperer`** (routing role `testing`). Every number in the
    report must appear in tool output; profiles saved under `reports/perf/`.
 
 6. **Read the report.** Table: operation | baseline | current | delta.
