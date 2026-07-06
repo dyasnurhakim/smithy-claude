@@ -1,0 +1,20 @@
+{
+  "smithy_config_version": 1,
+  "routing": {
+    "research":       { "model": "sonnet", "effort": "medium" },
+    "planning":       { "model": "opus",   "effort": "high"   },
+    "implementation": { "model": "sonnet", "effort": "medium" },
+    "review":         { "model": "opus",   "effort": "high"   },
+    "debugging":      { "model": "opus",   "effort": "high"   },
+    "testing":        { "model": "sonnet", "effort": "medium" },
+    "mechanical":     { "model": "haiku",  "effort": "low"    }
+  },
+  "gates": {
+    "pause_between_phases": true,
+    "auto_fix_review_findings": false
+  },
+  "testing": {
+    "stack": "auto",
+    "skip": []
+  }
+}

@@ -1,0 +1,9 @@
+# OS
+.DS_Store
+
+# editor
+.idea/
+.vscode/
+
+# scratch/test fixtures (created during development verification)
+/tmp/

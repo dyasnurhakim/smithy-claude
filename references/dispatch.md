@@ -1,0 +1,101 @@
+# Smithy Dispatch Protocol
+
+How skills dispatch the four smithy agents (`implementor`, `code-reviewer`,
+`debugger`, `tester`) with routed models, bounded context, and verifiable output.
+
+## 1. Resolve routing
+
+Before every dispatch:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh <role>
+→ model=sonnet effort=medium
+```
+
+Roles: `research planning implementation review debugging testing mechanical`.
+
+- Pass `model` as the Agent tool's per-dispatch `model` parameter. It overrides
+  the agent's frontmatter default. If `model=inherit`, omit the parameter.
+- `effort` is NOT a dispatch parameter. Prepend the matching banner to the
+  subagent prompt:
+
+| effort | banner to prepend |
+|---|---|
+| low | "Effort: LOW. Be brief and mechanical. No exploration beyond the brief." |
+| medium | "Effort: MEDIUM. Think through edge cases before acting." |
+| high | "Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one." |
+| max | "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing." |
+
+## 2. Hand over files, not text
+
+The dispatch prompt contains ONLY:
+
+1. The effort banner.
+2. Absolute paths to: the brief/context file, `${CLAUDE_PLUGIN_ROOT}/references/creed.md`,
+   and the report output path the agent must write to.
+3. One sentence naming the job and unit (e.g. "Job user-auth, task 3").
+
+Never paste the brief's contents, prior reports, or conversation history into
+the prompt. Never let the agent return the full report inline — it writes the
+report file and returns only: status, one-line summary, concerns.
+
+## 3. Brief template (written by blueprint/anneal/test skills)
+
+```markdown
+# Task N: <title>
+## Context files (read these, nothing else)
+- path/to/file.ts — why it matters
+## Requirements
+- <numbered, testable requirements>
+## Verify
+- `<command>` → expected: <output/behavior>
+## Commit message
+<type>: <description>
+## Report
+Write your report to: docs/smithy/jobs/<slug>/reports/task-N-impl.md
+Use EXACTLY the report template from your agent instructions.
+The first body line MUST be `Status: <STATUS>` — it is machine-read.
+Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+```
+
+## 4. Status vocabulary and controller responses
+
+| Status | Meaning | Controller response |
+|---|---|---|
+| DONE | All requirements met, verify commands ran green | Proceed to review |
+| DONE_WITH_CONCERNS | Done, but concerns listed | Triage each concern before proceeding |
+| NEEDS_CONTEXT | Blocked on a specific question | Answer it (or ask the user), re-dispatch |
+| BLOCKED | Cannot proceed (env, permissions, contradiction) | Resolve or escalate to user; consider model bump |
+
+**Defensive rule:** if a report's `Status:` line is missing or not in this
+vocabulary, treat it as DONE_WITH_CONCERNS — read the full report before
+proceeding. Never crash the pipeline on a malformed report; never assume it
+means DONE.
+
+## 5. Review discipline
+
+- Record BASE before dispatching an implementor:
+  `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
+- Build the package from BASE..HEAD (never `HEAD~1` — it silently drops all
+  but the last commit):
+  `review-package.sh build <brief> <out> [impl-report]`
+- The reviewer reads the package file. Its prompt must include:
+  **"Do Not Trust the Report — the implementor's claims are unverified.
+  Verify each one against the diff and by running read-only checks."**
+- Two verdicts, each `APPROVED|REJECTED`: (1) spec compliance, per-requirement;
+  (2) code quality, findings with `file:line`, severity
+  Critical/High/Medium/Low, confidence 1–10.
+
+## 6. Retry and escalation
+
+- REJECTED review → re-dispatch implementor with the review report path added
+  to the brief. Maximum 2 fix cycles per unit; then escalate to the user with
+  both reports.
+- NEEDS_CONTEXT twice on the same question → the question goes to the user.
+- Repeated BLOCKED → consider one model-tier bump (e.g. sonnet→opus) for the
+  retry, then escalate.
+
+## 7. Ledger
+
+After every dispatch resolves:
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append <phase> <job> <unit> <STATUS> <report-path>`
