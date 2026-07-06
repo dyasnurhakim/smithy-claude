@@ -21,8 +21,10 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> hone STA
    spec/plan touched. Standalone: ask ("which operation feels slow?").
    Every measurement target is a concrete invocation, not a vibe.
 
-3. **Detect tooling** (stacks.md): TS/JS → `node --cpu-prof` + vitest bench
-   where configured; Python → cProfile + pytest-benchmark if present.
+3. **Detect tooling** (stacks.md): pick this skill's per-stack playbook
+   (`references/{ts,python,go,java,rust}.md`) — TS/JS `node --cpu-prof` /
+   vitest bench; Python cProfile / pytest-benchmark; Go `go test -bench` +
+   pprof; Java JMH or JFR; Rust criterion / perf (always `--release`).
    Fallback: `time` on repeated invocations.
 
 4. **Write the test brief** (`briefs/hone.md`): targets, tool invocations,

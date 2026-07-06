@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+Multi-language stack support.
+
+- Stack detection extended: Go (go.mod), Java/JVM (pom.xml,
+  build.gradle[.kts] — Maven and Gradle wrappers), Rust (Cargo.toml)
+- 12 new per-stack playbooks across ring-test / wield / proof / hone:
+  table-driven `go test` + race detector, JUnit via mvn/gradle + surefire
+  report reading, `cargo test` variant-matching; httptest / MockMvc /
+  axum-test in-process QA; load discipline per runtime (release builds
+  enforced for Go/Rust, ≥60s JIT warm-up for JVM, pprof / jcmd / RSS+fd
+  monitoring hooks); `go test -bench` + benchstat, JMH-or-JFR, criterion
+- Mixed-repo detection: `also=` hint when multiple manifests present —
+  skills ask instead of trusting first-match precedence
+- Load clients documented as language-agnostic (autocannon targets any HTTP
+  service); never install tools into the user's project
+
 ## 0.2.0 — unreleased
 
 Adoption discipline + TDD, closing the gaps vs superpowers.

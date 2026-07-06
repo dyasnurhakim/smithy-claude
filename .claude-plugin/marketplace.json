@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Marketplace for the smithy dev-pipeline plugin",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {
       "name": "smithy",
       "source": "./",
       "description": "Full dev-pipeline plugin: research, planning, implementation, review, debugging, QA/stress/perf/unit testing — with dynamic model routing and per-project memory",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "strict": true
     }
   ]

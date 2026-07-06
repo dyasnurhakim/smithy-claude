@@ -25,8 +25,12 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> proof ST
 
 ## Process
 
-1. **Detect tooling** (stacks.md matrix): TS/JS → autocannon (`npx autocannon`),
-   k6 only if already installed; Python → locust; otherwise ask.
+1. **Detect tooling** (stacks.md matrix): the load client is language-
+   agnostic — default `npx autocannon` for any HTTP target; locust for
+   Python; k6/wrk/hey/vegeta only if already installed. The per-stack
+   playbook (`references/{ts,python,go,java,rust}.md`) sets the build/run
+   discipline (release builds, JVM warm-up) and the runtime monitoring hooks
+   (pprof, jcmd/JFR, RSS/fd tracking).
 
 2. **Write the test brief** (`briefs/proof.md`): tool + exact invocations for
    four phases — warm-up (low load, 10s), ramp (step to target), sustained

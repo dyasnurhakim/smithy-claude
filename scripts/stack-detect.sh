@@ -3,6 +3,9 @@
 # Run from anywhere inside the project. Prints one line, e.g.:
 #   stack=ts pkg=pnpm unit=vitest e2e=playwright
 #   stack=python pkg=uv unit=pytest e2e=none
+#   stack=go pkg=gomod unit=gotest e2e=none
+#   stack=java pkg=maven unit=junit e2e=none
+#   stack=rust pkg=cargo unit=cargotest e2e=none
 #   stack=unknown pkg=none unit=none e2e=none
 set -euo pipefail
 
@@ -45,9 +48,30 @@ elif [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; then
   if [ -f pytest.ini ] || grep -qs '\[tool\.pytest' pyproject.toml || grep -qs '^pytest' requirements*.txt 2>/dev/null; then
     unit=pytest
   elif [ -f pyproject.toml ] && grep -qs 'pytest' pyproject.toml; then unit=pytest; fi
-# --- Go / Rust (basic detection, generic playbook applies) ---
-elif [ -f go.mod ];     then stack=go;   pkg=gomod; unit=gotest
-elif [ -f Cargo.toml ]; then stack=rust; pkg=cargo; unit=cargotest
+# --- Go ---
+elif [ -f go.mod ]; then
+  stack=go; pkg=gomod; unit=gotest
+# --- Java / JVM ---
+elif [ -f pom.xml ]; then
+  stack=java; pkg=maven; unit=junit
+elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+  # Kotlin/Groovy Gradle projects both route through the java playbooks
+  stack=java; pkg=gradle; unit=junit
+# --- Rust ---
+elif [ -f Cargo.toml ]; then
+  stack=rust; pkg=cargo; unit=cargotest
 fi
 
-echo "stack=$stack pkg=$pkg unit=$unit e2e=$e2e"
+# Multi-stack hint: list other detected manifests so callers know to confirm
+# with the user instead of trusting first-match precedence blindly.
+also=""
+[ "$stack" != js ] && [ "$stack" != ts ] && [ -f package.json ] && also="$also,js"
+[ "$stack" != python ] && { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && also="$also,python"
+[ "$stack" != go ]     && [ -f go.mod ]      && also="$also,go"
+[ "$stack" != java ]   && { [ -f pom.xml ] || [ -f build.gradle ] || [ -f build.gradle.kts ]; } && also="$also,java"
+[ "$stack" != rust ]   && [ -f Cargo.toml ]  && also="$also,rust"
+also="${also#,}"
+
+out="stack=$stack pkg=$pkg unit=$unit e2e=$e2e"
+[ -n "$also" ] && out="$out also=$also"
+echo "$out"

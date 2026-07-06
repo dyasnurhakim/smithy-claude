@@ -49,9 +49,9 @@ the system working, not a failure.
 3. **Augment the brief.** Add to the brief's Report section:
    `TDD mode: write the failing test FIRST for each requirement (RED), then
    the minimal implementation (GREEN), commit per stage.` If the project has
-   a stack playbook (`${CLAUDE_PLUGIN_ROOT}/skills/ring-test/references/ts.md`
-   or `python.md` per stack-detect), add its path as the test-convention
-   reference.
+   a stack playbook (`${CLAUDE_PLUGIN_ROOT}/skills/ring-test/references/`
+   `{ts,python,go,java,rust}.md` per stack-detect), add its path as the
+   test-convention reference.
 
 4. **Dispatch the `smithy:jigsmith` agent** (model from routing; effort
    banner; paths only: brief, creed, report path).

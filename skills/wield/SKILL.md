@@ -13,10 +13,11 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
 
 ## Process
 
-1. **Detect stack + surface:** `stack-detect.sh`. Playbook: `references/ts.md`
-   (web UI / Node API) or `references/python.md` (Python API/CLI). Web UIs and
-   services need a runnable target — get the run command + URL from spec.md /
-   STATE.md or ask.
+1. **Detect stack + surface:** `stack-detect.sh`. Playbook from this skill's
+   `references/` dir by `stack=`: `ts.md`, `python.md`, `go.md`, `java.md`,
+   `rust.md` (any web UI can additionally use Playwright via npx per ts.md).
+   Web UIs and services need a runnable target — get the run command + URL
+   from spec.md / STATE.md or ask.
 
 2. **Pick the tier** (AskUserQuestion, default Standard):
    - **Quick** — fix-worthy findings: Critical + High only

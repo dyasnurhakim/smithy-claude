@@ -14,9 +14,10 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> ring-tes
 ## Process
 
 1. **Detect the stack:** `bash ${CLAUDE_PLUGIN_ROOT}/scripts/stack-detect.sh`.
-   Pick the playbook: `references/ts.md` (this skill's dir) for js/ts,
-   `references/python.md` for python. `stack=unknown` → use the generic rules
-   in stacks.md and confirm the test command with the user first.
+   Pick the playbook from this skill's `references/` dir by the `stack=`
+   value: `ts.md` (js/ts), `python.md`, `go.md`, `java.md`, `rust.md`.
+   `stack=unknown` → use the generic rules in stacks.md and confirm the test
+   command with the user first.
 
 2. **Determine scope.** Pipeline mode: the tasks in `jobs/<slug>/plan.md` —
    test the behaviors its success criteria name. Standalone: ask the user
