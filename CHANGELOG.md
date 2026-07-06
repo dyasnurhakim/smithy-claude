@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2 — unreleased
+
+- `fable` (Claude 5, Mythos-class — above opus) added to the model routing
+  vocabulary: routing.sh enum, calibrate options, dispatch tier table,
+  README. Verified live with a real fable dispatch.
+- calibrate now PROBES model availability before writing any model change
+  (minimal test dispatch per candidate model) — model access varies by
+  account and shifts over time (e.g. fable subscription → usage-credit);
+  a failed probe keeps the current value and suggests the nearest tier.
+  dispatch.md documents the runtime fall-back rule for rejected dispatches.
+
 ## 0.4.1 — unreleased
 
 Guard rails expanded from git-only to full destructive-operation coverage.

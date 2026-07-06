@@ -143,7 +143,7 @@ Each pipeline role maps to a model + effort in `docs/smithy/config.json` (projec
 }
 ```
 
-The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort maps to an injected prompt banner — it is prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=sonnet/medium`.
+The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Valid models, cheapest to most capable: `haiku` < `sonnet` < `opus` < `fable` (Claude 5 Mythos-class — availability depends on your account), plus `inherit`. Effort maps to an injected prompt banner — it is prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/high`.
 
 TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence verified from commit ordering) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
 

@@ -14,7 +14,7 @@ DEFAULTS="$SCRIPT_DIR/../defaults/config.json"
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 PROJECT_CONFIG="$PROJECT_ROOT/docs/smithy/config.json"
 
-VALID_MODELS="opus sonnet haiku inherit"
+VALID_MODELS="fable opus sonnet haiku inherit"
 VALID_EFFORTS="low medium high max"
 ROLES="research planning implementation review debugging testing mechanical"
 

@@ -24,6 +24,10 @@ Roles: `research planning implementation review debugging testing mechanical`.
 
 - Pass `model` as the Agent tool's per-dispatch `model` parameter. It overrides
   the agent's frontmatter default. If `model=inherit`, omit the parameter.
+- Model tiers, cheapest to most capable: `haiku` < `sonnet` < `opus` < `fable`
+  (Claude 5, Mythos-class). Fable availability depends on the account — if a
+  fable dispatch is rejected, tell the user and fall back to opus for that
+  dispatch; suggest `/smithy:calibrate` to change the route.
 - `effort` is NOT a dispatch parameter. Prepend the matching banner to the
   subagent prompt:
 

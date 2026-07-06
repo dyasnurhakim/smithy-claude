@@ -1,7 +1,7 @@
 {
   "name": "smithy",
   "description": "Full dev pipeline: research (assay), planning (blueprint), implementation (forge), review (inspect), debugging (anneal), testing (temper: ring-test/wield/proof/hone). Blacksmith-themed, memory-backed, tier-routed models. Never assumes — asks or recommends.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": {
     "name": "Dyas Nuhakim S",
     "email": "dyassudiana@gmail.com"
