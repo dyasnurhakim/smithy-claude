@@ -77,11 +77,22 @@ never fight the hook:
   Standalone commits outside an approved plan → ask.
 - **Never rewrite history or force anything**: no `--amend`, `rebase`,
   `reset --hard`, `branch -D`, `clean -f`, force flags.
-- **Never `rm -rf`** an absolute, `~`, or `..` path. Scope deletions inside
-  the project and ask when in doubt.
+- **Never destroy data or infrastructure without a live user yes** — the
+  guard blocks, among others: cloud deletion/termination (aws/gcloud/az/
+  gsutil), `terraform destroy`/`pulumi destroy`, container/volume removal
+  (docker rm/rmi/prune/compose down, kubectl delete/drain, helm uninstall),
+  database destruction (DROP/TRUNCATE via any client, DELETE FROM without
+  WHERE, dropdb, redis FLUSHALL, mongo drop, migration resets like
+  `prisma migrate reset` / `rails db:drop` / `migrate:fresh` / Django
+  `flush`), and filesystem destruction (`rm -rf` on absolute/`~`/`..`
+  paths, `find -delete`, `rsync --delete`, `shred`, `dd of=/dev/*`,
+  `mkfs`, `truncate -s 0`).
+- After the user approves ONE specific destructive command, the controller
+  runs `guard.sh allow-once` — the token is consumed by that one command.
+  One yes covers exactly one operation; never mint a token in advance.
 - Blocked by the guard? Do NOT work around it (no `git -c`, no subshell
-  tricks, no editing the grant files). Report the block to the user — the
-  block IS the system working.
+  tricks, no wrapper scripts, no editing the grant files). Report the block
+  to the user — the block IS the system working.
 
 ## 7. Context discipline
 

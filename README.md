@@ -162,9 +162,17 @@ A deterministic PreToolUse hook (`scripts/guard.sh`) enforces git safety in smit
 
 - `git push` — blocked; needs a live user yes per push (one-shot token)
 - `git commit` — blocked unless the job's plan gate was approved (approval = job-scoped commit grant, auto-revoked at job end)
-- History rewrites (`--amend`, `rebase`, `reset --hard`, `branch -D`, `clean -f`, force flags) and `rm -rf` on absolute/`~`/`..` paths — always blocked
+- History rewrites (`--amend`, `rebase`, `reset --hard`, `branch -D`, `clean -f`, force flags) — always blocked
+- **Destructive operations** — blocked unless the user approves that specific command (then `guard.sh allow-once` mints a token consumed by exactly one command):
+  - *Cloud*: `aws … terminate-instances`/`delete-*`/`s3 rb|rm`, `gcloud … delete`, `gsutil rm|rb`, `az … delete`, `fly destroy`, `heroku destroy|pg:reset`, `vercel remove`
+  - *IaC*: `terraform destroy`, `pulumi destroy|stack rm`, `cdk destroy`
+  - *Containers*: `docker rm|rmi|prune|volume rm|compose down`, `kubectl delete|drain`, `helm uninstall`
+  - *Databases*: `DROP`/`TRUNCATE`/`ALTER … DROP` via any client (psql/mysql/sqlite3/mongo/…), `DELETE FROM` without `WHERE`, `dropdb`, `redis-cli flushall|flushdb`, mongo `dropDatabase`, and migration resets (`prisma migrate reset`, `rails db:drop|reset`, `artisan migrate:fresh|reset`, Django `flush`, `alembic downgrade base`)
+  - *Filesystem*: `rm -rf` on absolute/`~`/`..` paths, `find -delete`, `rsync --delete`, `shred`, `dd of=/dev/*`, `mkfs`, `truncate -s 0`
 - Non-smithy projects: the hook stands down entirely
 - Your own `CLAUDE.md` rules override smithy protocol wherever they conflict (creed §0)
+
+`DELETE FROM logs WHERE created_at < …` passes; `DELETE FROM logs` does not. `docker build`/`compose up`/`kubectl get`/`aws s3 ls`/`terraform plan` all pass — the guard targets destruction, not operations. 57-case test matrix in the repo history.
 
 ## Inter-agent envelope
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.1 — unreleased
+
+Guard rails expanded from git-only to full destructive-operation coverage.
+
+- New blocked categories (all with the one-shot `allow-once` escape after a
+  live user yes): cloud deletion/termination (aws terminate-instances /
+  delete-* / s3 rb|rm, gcloud delete, gsutil rm|rb, az delete, fly/heroku/
+  vercel destroy), IaC (terraform/pulumi/cdk destroy), containers
+  (docker rm/rmi/prune/volume rm/compose down, kubectl delete/drain, helm
+  uninstall), databases (DROP/TRUNCATE/ALTER-DROP via any client, DELETE
+  FROM without WHERE, dropdb, mysqladmin drop, redis FLUSHALL/FLUSHDB,
+  mongo dropDatabase, prisma/rails/artisan/Django/alembic migration
+  resets, npm unpublish), filesystem (find -delete, rsync --delete, shred,
+  dd of=/dev/*, mkfs, truncate -s 0)
+- `guard.sh allow-once`: one-shot destructive override, consumed by exactly
+  one command, never unlocks push; `status` shows it; `revoke` clears it
+- SQL rules require a database-client context (no false positives on
+  "drop table" in commit messages); DELETE FROM with a WHERE clause passes
+- `tests/guard-matrix.sh`: self-contained 57-case regression matrix
+
 ## 0.4.0 — unreleased
 
 Personas, git guard rails, inter-agent envelope.
