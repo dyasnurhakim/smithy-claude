@@ -7,16 +7,92 @@ Blacksmith-themed: you *assay* the ore, draw a *blueprint*, *forge* the piece, *
 ## Install
 
 ```
-/plugin marketplace add dyasnurhakim/smithy
-/plugin install smithy@smithy-dev
+/plugin marketplace add dyasnurhakim/smithy-claude
+/plugin install smithy@smithy-claude
 ```
 
 Or from a local clone:
 
 ```
-/plugin marketplace add /path/to/smithy
-/plugin install smithy@smithy-dev
+/plugin marketplace add /path/to/smithy-claude
+/plugin install smithy@smithy-claude
 ```
+
+Restart the session (or `/plugin` → enable) and you're set — the SessionStart hook announces smithy and its routing rules in every new session.
+
+## Usage
+
+### The one command
+
+```
+/smithy build a password-reset flow with email verification
+```
+
+That runs the whole pipeline with approval gates. You'll be asked questions instead of smithy assuming answers — that's the core design.
+
+### Or drive each phase yourself
+
+```
+/smithy:assay add rate limiting to the public API     # research → spec (asks about every ambiguity)
+/smithy:blueprint                                     # spec → verify-annotated plan + task briefs
+/smithy:forge                                         # implement task-by-task (review after each task)
+/smithy:guild                                         # production-readiness persona panel
+/smithy:temper                                        # full test pass → READY / NOT READY
+/smithy:handover                                      # evidence-cited summary for the next session
+```
+
+Useful standalone:
+
+```
+/smithy:anneal "POST /orders returns 500 when the cart is empty"   # RCA before any fix
+/smithy:jig implement the discount calculator                      # test-first (RED→GREEN, evidence enforced)
+/smithy:wield                                                      # QA the app like a user (health score 0-100)
+/smithy:commission                                                 # define who uses this system → test personas
+/smithy:calibrate review=sonnet/medium                             # change model routing per project
+```
+
+### Example workflow — what a full run actually looks like
+
+```
+you    > /smithy add CSV export to the reports page
+
+ASSAY    smithy restates the goal, then asks instead of assuming:
+         "Which columns? All report types or just tabular ones? Max rows —
+         stream or cap? Who may export (role check)?"
+         → docs/smithy/jobs/csv-export/spec.md   (open questions: none)
+
+GATE     "Spec ready — approve, revise, or abort?"           [you: approve]
+
+BLUEPRINT 4 tasks, every step verify-annotated:
+         "2. Add /reports/:id/export endpoint → verify: curl returns
+          text/csv with header row"
+         → plan.md + briefs/task-1..4.md
+GATE     "Approving this plan authorizes its task commits."  [you: approve]
+         → commit grant written (guard hook now allows task commits)
+
+FORGE    task-1: jigsmith (TDD mode) — failing test committed (RED),
+         minimal impl (GREEN), inspector reviews the diff against the brief:
+         APPROVED. task-2 … task-4 likewise. One rejected task gets one fix
+         cycle, re-review, APPROVED.
+
+GUILD    diff touches UI + API → roster: master-engineer, master-security,
+         master-qa, master-uiux, patron-end-user, patron-product (parallel).
+         Verdict: NOT_READY — security: export endpoint missing the role
+         check the spec promised (Critical, confidence 9).
+         → fix brief → forge → security re-reviews → PRODUCTION_READY
+
+TEMPER   ring-test PASS · wield 91/100 PASS · proof skipped (no SLO change)
+         → temper-summary.md: READY
+
+GATE     "Ship it?"                                          [you: approve]
+         → commit grant revoked. Push? Only if you say so — a push needs
+         its own yes, every time.
+
+/smithy:handover → handoff.md; next session resumes from the ledger even
+after a crash or compaction.
+```
+
+Everything the run produced lives in your repo under `docs/smithy/` — spec, plan, briefs, every agent report, an append-only ledger, and a ≤40-line STATE.md. Kill the session at any point; `/smithy` recomputes its position from the ledger, not from memory.
 
 ## Skills
 
