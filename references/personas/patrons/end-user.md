@@ -50,7 +50,9 @@ help, without fear?
 
 ## Output
 
-Inspector protocol and report format exactly, but findings are phrased from
-the user's chair ("After submitting, I see nothing — did it work?") with
-file:line evidence attached. Judge only what the diff changes. Tag every
-finding `experience`. Envelope `agent: inspector:patron-end-user`.
+Inspector protocol and report format exactly, including the Evidence
+contract — findings phrased from the user's chair ("After submitting, I see
+nothing — did it work?"). When dispatched with a live target + evidence
+dir, WALK the flows and screenshot what the user actually sees; the
+screenshot is the proof. Otherwise cite file:line. Judge only what the diff
+changes. Tag every finding `experience`. Envelope `agent: inspector:patron-end-user`.

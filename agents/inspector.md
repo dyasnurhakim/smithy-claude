@@ -55,12 +55,36 @@ next_action: "<one line>"
 ## Verdict 2: Code quality — APPROVED | REJECTED
 | # | Tag | Severity | Confidence | Location | Finding |
 |---|-----|----------|------------|----------|---------|
-| 1 | craft | Critical|High|Medium|Low | N/10 | file:line | <what and why> |
+| 1 | craft | Critical|High|Medium|Low | N/10 | file:line | <one line> |
+## Finding details (one block per finding — the proof lives here)
+### Finding 1 — <title>
+- Evidence: <file:line + the offending excerpt | screenshot path + what it
+  shows | verbatim command output> (required — see Evidence contract)
+- Why flagged: <the concrete harm/violation, not a style opinion>
+- Severity: <level> — because <tie to the calibration: what breaks, for
+  whom, how badly; why it is NOT the level above or below>
+- Fix: <recommended action, one line>
 ## Checks run (verbatim)
 - `<command>` → <trimmed output>
 ## Summary
 <two sentences max>
 ```
+
+## Evidence contract (binding)
+
+Every finding MUST carry proof — one of:
+- **file evidence**: `file:line` plus the offending excerpt (a location
+  without the excerpt is not evidence);
+- **command evidence**: the verbatim command + output that demonstrates the
+  behavior;
+- **screenshot evidence** (when dispatched with a live target + evidence
+  dir): a PNG you captured via Playwright, saved in the evidence dir with a
+  descriptive name — cite the path and describe what it shows.
+
+No proof → the item is NOT a finding: report it as `cannot-verify`
+(confidence ≤4) with the check someone would run to verify it. Severity
+always comes with its reason — "High because <consequence>" — never a bare
+label.
 
 Severity: Critical = breaks correctness/security/data. High = bug or spec gap.
 Medium = maintainability. Low = style. Confidence: 9–10 only when you verified

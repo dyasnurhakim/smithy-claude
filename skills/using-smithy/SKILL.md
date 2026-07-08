@@ -29,6 +29,8 @@ say so and step out — but the check comes first.
 | "Review this change/task/diff" | `/smithy:inspect` |
 | "Is this ready to ship?" / production-readiness / multi-perspective review | `/smithy:guild` |
 | "Who uses this system?" / define test personas / role-based QA | `/smithy:commission` |
+| "Create a design" / design system / "make it look good" (before UI work) | `/smithy:pattern` |
+| "Review/improve the design" / "polish the UI" / "why does it look off" | `/smithy:burnish` |
 | A bug, unexpected failure, "why is this broken" | `/smithy:anneal` |
 | "Test everything" after implementation | `/smithy:temper` |
 | Unit tests only | `/smithy:ring-test` |

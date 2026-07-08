@@ -69,7 +69,10 @@ process, not deciding silently.
    using EXACTLY the brief template from
    `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` — including the Report
    section's Status-line contract. Context files list ONLY what that task
-   needs (the agent reads nothing else). Requirements are numbered and
+   needs (the agent reads nothing else). **UI tasks: if
+   `docs/smithy/DESIGN.md` exists, it goes in the context files** (the
+   design source of truth from `/smithy:pattern`); if it doesn't and the
+   job is UI-heavy, recommend running `/smithy:pattern` before forging. Requirements are numbered and
    testable. The brief must be self-contained: an agent with ONLY that brief
    + the listed context files can complete the task without seeing the spec,
    the plan, or this conversation.

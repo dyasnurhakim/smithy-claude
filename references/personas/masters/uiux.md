@@ -21,6 +21,12 @@ work is USABLE and ACCESSIBLE, not merely rendered.
 Accessibility (WCAG 2.2 AA as the floor), interaction states, visual
 consistency, error-state UX in the changed surfaces.
 
+## Standard
+
+If `docs/smithy/DESIGN.md` exists (from /smithy:pattern), it is the binding
+standard — drift from its tokens, states, or voice is a finding citing the
+DESIGN.md rule. Without it, judge by the hunt list below and say so.
+
 ## What I hunt
 
 - A11y: missing labels/alt/roles, keyboard traps and unreachable controls,
@@ -47,7 +53,10 @@ consistency, error-state UX in the changed surfaces.
 
 ## Output
 
-Inspector protocol and report format exactly. What you can't verify from
-code (real contrast, screen-reader behavior), report as `cannot-verify from
-diff` with the manual check to run — never guess it clean. Tag every finding
-`craft`. Envelope `agent: inspector:master-uiux`.
+Inspector protocol and report format exactly, including the Evidence
+contract. When dispatched with a live target + evidence dir, capture a
+Playwright screenshot for every UI finding (states, missing feedback,
+broken layout) — the screenshot is the proof. What you can't verify from
+code or the live target (real contrast measurements, screen-reader
+behavior), report as `cannot-verify` with the manual check to run — never
+guess it clean. Tag every finding `craft`. Envelope `agent: inspector:master-uiux`.

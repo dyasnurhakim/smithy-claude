@@ -106,6 +106,8 @@ Everything the run produced lives in your repo under `docs/smithy/` — spec, pl
 | `/smithy:inspect` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
 | `/smithy:guild` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
 | `/smithy:commission` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
+| `/smithy:pattern` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `docs/smithy/DESIGN.md`, the design source of truth |
+| `/smithy:burnish` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
 | `/smithy:anneal` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
 | `/smithy:temper` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
 | `/smithy:ring-test` | **Unit tests** (ring test = tapping metal to hear flaws) |
@@ -151,10 +153,12 @@ TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "alw
 
 Reviews can fan out to **parallel persona reviewers** (one inspector agent, different persona overlays):
 
-- **Masters** (craft — is it built right?): engineer, security, QA, UI/UX, SRE
+- **Masters** (craft — is it built right?): engineer, security, QA, UI/UX, designer (identity & distinctiveness — the anti-template judge), SRE
 - **Patrons** (experience — is it the right thing?): end-user, product, marketing, support
 
 `/smithy:guild` selects the roster by diff content (engineer + security always; the rest conditional), dispatches them in parallel, dedupes and cross-verifies findings, and issues one verdict: **PRODUCTION_READY** requires both craft and experience clean of Critical/High. `/smithy:commission` adds **project-level personas** (your system's actual roles — e.g. patient, receptionist, admin) that wield uses to run QA flows per role, including cross-persona permission checks.
+
+**Every finding must carry proof.** The inspector's evidence contract: file evidence (`file:line` + the offending excerpt), command evidence (verbatim output), or **screenshot evidence** — when the diff is user-facing and the app is runnable, UI-facing personas (UI/UX, end-user, marketing, support) drive it headlessly with Playwright and save screenshots to `docs/smithy/jobs/<job>/reports/guild-evidence/<persona>/` in your repo. Each finding states *why* it's flagged and *why* it got its severity (tied to the persona's calibration). No proof → it's reported as `cannot-verify`, not as a finding. The verdict ships twice: human-readable `guild-verdict.md` and machine-readable `guild-verdict.json` (findings with fingerprint, severity + reason, evidence path, fix — ready for CI or trend tooling).
 
 ## Git guard rails
 

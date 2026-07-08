@@ -20,9 +20,10 @@ per task; per-task review stays with the solo `/smithy:inspect`.
 
 1. Build the whole-job review package
 2. Select personas by diff content; show the roster + cost note
-3. Dispatch all selected personas IN PARALLEL (one message)
-4. Synthesize: dedupe, verify, tag craft/experience
-5. Single verdict written, ledger logged, findings routed
+3. Live target for UI-facing personas (run app, evidence dir)
+4. Dispatch all selected personas IN PARALLEL (one message)
+5. Synthesize: dedupe, verify evidence, tag craft/experience
+6. Verdict written (md + json), ledger logged, findings routed
 
 ## 1. Build the package
 
@@ -43,6 +44,7 @@ diff content (`git diff --stat <base>..HEAD` + file list):
 | masters/security.md | always |
 | masters/qa.md | diff touches behavior or tests (nearly always — skip only pure-docs diffs) |
 | masters/uiux.md | frontend/UI files (.tsx/.vue/.svelte/.css/components/templates) |
+| masters/designer.md | frontend/UI/design-system files — judges identity & distinctiveness (uiux judges function; designer judges design) |
 | masters/sre.md | infra/config/deploy/perf paths (Dockerfile, k8s, terraform, .github, migrations, config) |
 | patrons/end-user.md | any user-facing change (UI, API surface, CLI output, error messages) |
 | patrons/product.md | any user-facing change |
@@ -54,17 +56,38 @@ Show the selected roster with one-line reasons and note the cost (N parallel
 `docs/smithy/personas/` exists, tell patron-end-user's dispatch to read those
 files too (its persona instructs it to embody them).
 
-## 3. Dispatch — parallel, one message
+## 3. Live evidence target (UI-facing personas)
+
+When the diff is user-facing AND a runnable target exists (run command + URL
+from spec.md/STATE.md — or ask; never guess a URL):
+
+- Start the app (or confirm it's running) and poll readiness.
+- The dispatch prompts for `masters/uiux`, `masters/designer`,
+  `patrons/end-user`, `patrons/marketing`, and `patrons/support`
+  additionally get: the target URL, and the evidence dir
+  `docs/smithy/jobs/<slug>/reports/guild-evidence/<persona>/`.
+- Those personas drive the target headlessly via Bash with Playwright
+  (`npx playwright screenshot --viewport-size=1280,720 <url> <dir>/NNN-<what>.png`
+  for states; a scratch spec file for multi-step flows — wield's ts playbook
+  patterns apply) and MUST save a screenshot for every UI finding: the
+  screenshot IS the proof.
+- No runnable target, or Playwright unavailable → UI findings are capped at
+  `cannot-verify` (confidence ≤4) and the verdict's Gaps section says why.
+  LOCAL targets only — never drive a production URL without the user naming
+  it this session.
+
+## 4. Dispatch — parallel, one message
 
 Resolve routing ONCE: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh review`.
 Dispatch ALL selected personas as `smithy:inspector` agents in a SINGLE
 message (parallel Agent calls). Each prompt = effort banner + paths only:
 persona file, guild package, creed, report output path
-`docs/smithy/jobs/<slug>/reports/guild-<persona>.md` + the verbatim
-Do-Not-Trust-the-Report line. Each returns only: verdicts, finding counts,
-one-line summary.
+`docs/smithy/jobs/<slug>/reports/guild-<persona>.md`, the live-target block
+(step 3, when applicable) + the verbatim Do-Not-Trust-the-Report line.
+Remind each: EVERY finding needs proof per the inspector evidence contract.
+Each returns only: verdicts, finding counts, one-line summary.
 
-## 4. Synthesize — you are the guildmaster
+## 5. Synthesize — you are the guildmaster
 
 Read the report envelopes first (`envelope.sh get/list`), then bodies:
 
@@ -80,7 +103,7 @@ Read the report envelopes first (`envelope.sh get/list`), then bodies:
 - Carry every unresolved `key_facts`/`concerns` envelope item into the
   verdict's envelope.
 
-## 5. Verdict
+## 6. Verdict
 
 Write `docs/smithy/jobs/<slug>/reports/guild-verdict.md` — envelope
 (kind: guild-verdict, agent: controller, status: PRODUCTION_READY |
@@ -101,6 +124,41 @@ Craft (masters): CLEAN | N findings   ·   Experience (patrons): CLEAN | N findi
 PRODUCTION_READY requires BOTH tag groups free of Critical/High findings
 (Medium/Low may ship with the user's explicit acceptance, recorded under
 Deferred + decisions.md).
+
+**Also write the machine-readable twin** `reports/guild-verdict.json`
+(consumers: CI, trend tooling, the next guild run's fingerprint dedupe):
+
+```json
+{
+  "schema": 1,
+  "job": "<slug>",
+  "verdict": "PRODUCTION_READY|NOT_READY",
+  "base": "<sha>", "head": "<sha>", "date": "<ISO>",
+  "roster": [{"persona": "master-uiux", "verdict": "REJECTED", "findings": 3}],
+  "findings": [{
+    "id": 1,
+    "fingerprint": "<sha256-12>",
+    "personas": ["master-uiux", "patron-end-user"],
+    "tag": "craft|experience",
+    "severity": "Critical|High|Medium|Low",
+    "severity_reason": "<why THIS severity — tie to the persona's calibration>",
+    "confidence": 9,
+    "location": {"file": "src/Form.tsx", "line": 42},
+    "evidence": {
+      "type": "screenshot|file|command",
+      "path": "reports/guild-evidence/master-uiux/003-submit-no-feedback.png",
+      "detail": "<what the evidence shows / verbatim output excerpt>"
+    },
+    "why": "<why this is a problem for this diff>",
+    "fix": "<recommended action>",
+    "status": "open|deferred"
+  }]
+}
+```
+
+Every finding in the JSON must have a non-empty `evidence` object,
+`severity_reason`, and `why` — a finding you cannot evidence goes to the
+Gaps section, not the findings list.
 
 Log: `ledger.sh append guild <slug> panel <PASS|FAIL> reports/guild-verdict.md`
 (PASS = PRODUCTION_READY). Route Critical/High fixes through `/smithy:forge`

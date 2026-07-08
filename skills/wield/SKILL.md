@@ -40,7 +40,13 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    - The report groups findings by persona; the health score stays global.
 
 4. **Write the test brief** (`briefs/wield.md`): playbook path, flows, tier,
-   persona file paths when in persona mode, report path `reports/test-qa.md`.
+   persona file paths when in persona mode, report path `reports/test-qa.md`,
+   and — for any browser/UI target — the MANDATORY evidence dir
+   `docs/smithy/jobs/<slug>/reports/qa-evidence/`. The brief states the
+   evidence contract explicitly: one screenshot per flow at its assertion
+   point, before/after pairs for mutating actions, one screenshot per
+   finding named `issue-NNN-<what>.png`. A UI QA report with zero
+   screenshots is INVALID — reject it and re-dispatch with the gap named.
    Dispatch `smithy:temperer` (routing role `testing`).
 
 5. **Score the report.** Findings carry: severity (Critical/High/Medium/Low),
@@ -52,10 +58,17 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    Content 10, Performance 10, Accessibility 10 (skip N/A categories and
    renormalize). Overall = weighted average.
 
-6. **Trend.** If a previous `reports/test-qa.md` exists, match fingerprints:
-   Resolved / Persistent / New; report score delta (baseline → now).
+6. **Write the machine-readable twin** `reports/test-qa.json`: findings
+   (fingerprint, persona if persona-mode, severity + severity_reason,
+   confidence, flow, evidence {type: screenshot|command, path, detail},
+   fix, status) + health score per category and overall — same shape as
+   guild-verdict.json findings.
 
-7. **Log:** `ledger.sh append temper <slug> wield <PASS|FAIL|PARTIAL> reports/test-qa.md`
+7. **Trend.** If a previous `reports/test-qa.json` exists, match
+   fingerprints: Resolved / Persistent / New; report score delta
+   (baseline → now).
+
+8. **Log:** `ledger.sh append temper <slug> wield <PASS|FAIL|PARTIAL> reports/test-qa.md`
    (FAIL if any Critical/High is open; PARTIAL if some flows could not run).
 
 ## Fix routing

@@ -11,7 +11,14 @@
   console message is at least a Medium finding.
 - Edge variants: empty inputs, over-long strings, special characters, double
   submits, back-button after submit.
-- Screenshot on failure; store under `docs/smithy/jobs/<slug>/reports/qa/`.
+- **Screenshots are mandatory, not on-failure-only** (evidence contract):
+  `await page.screenshot({ path: '<evidence-dir>/NNN-<flow>-<state>.png' })`
+  at every flow's assertion point, BEFORE and AFTER every mutating action,
+  and one per finding (`issue-NNN-<what>.png`). Use the evidence dir from
+  the brief. In a scratch spec, screenshots are just lines in the test —
+  write them in from the start, not retrofitted after something fails.
+- Verify files landed before reporting: `ls <evidence-dir>` output goes in
+  the report verbatim. Zero PNGs on a UI run = your report is invalid.
 
 ## API (no UI, or supertest/fetch appropriate)
 

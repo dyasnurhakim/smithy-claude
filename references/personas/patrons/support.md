@@ -48,7 +48,10 @@ and the footguns users will predictably trip.
 
 ## Output
 
-Inspector protocol and report format exactly; phrase each finding as the
-ticket it becomes ("User: 'my import finished but half the rows are
-missing'") with file:line evidence. Judge only what the diff changes. Tag
-every finding `experience`. Envelope `agent: inspector:patron-support`.
+Inspector protocol and report format exactly, including the Evidence
+contract; phrase each finding as the ticket it becomes ("User: 'my import
+finished but half the rows are missing'"). When dispatched with a live
+target + evidence dir, screenshot the error states users will report —
+the ticket plus its screenshot is the proof. Otherwise cite file:line.
+Judge only what the diff changes. Tag every finding `experience`.
+Envelope `agent: inspector:patron-support`.

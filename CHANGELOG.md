@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.5.0 — unreleased
+
+Proof-carrying reviews.
+
+- **Inspector evidence contract** (binding, all reviews): every finding
+  needs file evidence (file:line + excerpt), command evidence (verbatim
+  output), or screenshot evidence; plus "why flagged" and "severity —
+  because" rationale tied to the persona's calibration. No proof → reported
+  as cannot-verify (confidence ≤4), not as a finding. New "Finding details"
+  block per finding in the report template.
+- **Guild live-evidence stage**: for user-facing diffs with a runnable
+  target, UI-facing personas (master-uiux, patron-end-user/marketing/
+  support) drive the app headlessly via Playwright and save screenshots to
+  docs/smithy/jobs/<slug>/reports/guild-evidence/<persona>/ — the
+  screenshot is the proof. Local targets only; no target → UI findings
+  capped at cannot-verify.
+- **guild-verdict.json**: machine-readable twin of the markdown verdict
+  (findings with fingerprint, personas, tag, severity + severity_reason,
+  confidence, location, evidence object, fix, status) for CI and trends.
+- **Design skills**: `pattern` (design creation — subject-grounded style
+  directions with self-contained HTML previews as the proposal, token
+  system, states, motion, copy-as-design voice → docs/smithy/DESIGN.md)
+  and `burnish` (design review & improvement — baseline screenshots at
+  3 breakpoints, findings judged against DESIGN.md or declared heuristics
+  with screenshot proof, gated surgical fix loop with before/after pairs
+  and revert-on-regression, md+json report)
+- **master-designer persona** (10th persona): identity & distinctiveness
+  judge — the default test (incl. the three current AI-design clichés),
+  signature-element discipline, subject grounding, copy-as-design; fires
+  in guild on UI diffs alongside master-uiux (function vs design);
+  DESIGN.md is its binding standard when present
+- **wield screenshots now mandatory** (fixes: browser QA ran without
+  capturing anything): evidence dir `reports/qa-evidence/` in every UI
+  brief; one screenshot per flow assertion, before/after pairs around
+  mutations, one per finding; temperer agent gained the same binding
+  evidence contract; the controller rejects UI QA reports with zero PNGs
+  (`ls <evidence-dir>` verbatim in the report). Plus `test-qa.json` —
+  machine-readable QA twin with health scores, same findings shape as the
+  guild JSON.
+
 ## 0.4.2 — unreleased
 
 - `fable` (Claude 5, Mythos-class — above opus) added to the model routing

@@ -49,7 +49,10 @@ the things prospects actually see).
 
 ## Output
 
-Inspector protocol and report format exactly; for copy findings quote the
-current text and propose the replacement text inline. Judge only what the
-diff changes. Tag every finding `experience`.
+Inspector protocol and report format exactly, including the Evidence
+contract; for copy findings quote the current text and propose the
+replacement inline. When dispatched with a live target + evidence dir,
+screenshot the public surfaces you judge (landing, empty states, first-run)
+— demo-worthiness claims need the picture. Judge only what the diff
+changes. Tag every finding `experience`.
 Envelope `agent: inspector:patron-marketing`.

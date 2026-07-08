@@ -54,6 +54,21 @@ Status: PASS | FAIL | PARTIAL
 - <or "none">
 ```
 
+## Evidence contract (binding)
+
+Every finding and every claimed pass MUST carry proof:
+- **Browser/UI QA** (playbook uses Playwright): screenshots are MANDATORY,
+  saved to the evidence dir the brief names — one per flow at its assertion
+  point, before/after pairs around mutating actions, and one per finding
+  (`issue-NNN-<what>.png`). Cite each path in the report next to what it
+  shows. A UI QA report without screenshots is invalid.
+- **API/CLI/unit runs**: verbatim command output is the proof (already
+  required above).
+- Findings state why they're flagged and why they got their severity
+  ("High because <consequence>") — never a bare label.
+- What you couldn't capture proof for is `cannot-verify`, not a pass and
+  not a finding.
+
 ## Never
 
 - Never modify production source. Test files, fixtures, and test configs only.

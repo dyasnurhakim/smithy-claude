@@ -20,4 +20,6 @@
 ## Web UI (rare for python-only repos)
 
 - Use Playwright via `npx playwright` (ephemeral) against the running app;
-  same flow rules as the TS playbook.
+  same flow rules as the TS playbook — including its MANDATORY screenshot
+  evidence rule (per-flow, before/after mutations, per-finding, verified
+  with `ls <evidence-dir>`).
