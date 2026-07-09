@@ -5,9 +5,11 @@
 #   review-package.sh record-base
 #       Record current HEAD as the review base: updates the "- Base sha:" line
 #       in docs/smithy/STATE.md. Run BEFORE dispatching an implementor.
-#   review-package.sh build <brief-file> <out-file> [implementor-report-file]
-#       Build a review package from BASE..HEAD (BASE read from STATE.md —
-#       never HEAD~1, which silently drops all but the last commit).
+#   review-package.sh build <brief-file> <out-file> [implementor-report-file] [ref]
+#       Build a review package from BASE..<ref> (default ref: HEAD; pass a
+#       branch like smithy/<job>/<task> to review a parallel task's branch
+#       before absorbing it). BASE is read from STATE.md — never HEAD~1,
+#       which silently drops all but the last commit.
 set -euo pipefail
 
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "review-package.sh: not a git repo" >&2; exit 1; }
@@ -27,8 +29,8 @@ case "${1:-}" in
     echo "base=$sha"
     ;;
   build)
-    [ $# -ge 3 ] || { echo "usage: review-package.sh build <brief> <out> [impl-report]" >&2; exit 2; }
-    brief="$2"; out="$3"; report="${4:-}"
+    [ $# -ge 3 ] || { echo "usage: review-package.sh build <brief> <out> [impl-report] [ref]" >&2; exit 2; }
+    brief="$2"; out="$3"; report="${4:-}"; ref="${5:-HEAD}"
     [ -f "$brief" ] || { echo "review-package.sh: brief not found: $brief" >&2; exit 1; }
     base="$(grep -m1 '^- Base sha:' "$STATE" 2>/dev/null | awk '{print $4}')" || true
     [ -n "${base:-}" ] && [ "$base" != "none" ] || { echo "review-package.sh: no base sha in $STATE — run record-base first" >&2; exit 1; }
@@ -38,23 +40,23 @@ case "${1:-}" in
       echo "# Review Package"
       echo
       echo "Base: $base"
-      echo "Head: $(git -C "$PROJECT_ROOT" rev-parse HEAD)"
+      echo "Head: $(git -C "$PROJECT_ROOT" rev-parse "$ref") ($ref)"
       echo
       echo "## Task Brief"
       echo
       cat "$brief"
       echo
-      echo "## Commits ($base..HEAD)"
+      echo "## Commits ($base..$ref)"
       echo
-      git -C "$PROJECT_ROOT" log --oneline "$base..HEAD"
+      git -C "$PROJECT_ROOT" log --oneline "$base..$ref"
       echo
       echo "## Diff Stat"
       echo
-      git -C "$PROJECT_ROOT" diff --stat "$base..HEAD"
+      git -C "$PROJECT_ROOT" diff --stat "$base..$ref"
       echo
       echo "## Full Diff (-U10)"
       echo
-      git -C "$PROJECT_ROOT" diff -U10 "$base..HEAD"
+      git -C "$PROJECT_ROOT" diff -U10 "$base..$ref"
       if [ -n "$report" ] && [ -f "$report" ]; then
         echo
         echo "## Implementor Report (UNVERIFIED — do not trust; verify every claim)"

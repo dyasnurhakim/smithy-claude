@@ -105,10 +105,78 @@ Record the choice in `docs/smithy/decisions.md` (≤3 lines).
 | "The concern is minor, I'll note it later" | Untriaged concerns are how DONE_WITH_CONCERNS becomes silently DONE. Triage now. |
 | "I'll answer NEEDS_CONTEXT with my best guess" | The agent refused to guess — don't guess on its behalf. Derive from spec/plan or ask. |
 | "The tree is only a little dirty" | Any dirt contaminates the task's atomic commit and its review diff. Clean or ask. |
+| "These two tasks look independent, I'll parallelize them" | Only blueprint's ∥ marker (with its disjointness evidence) authorizes parallel execution. Unmarked = sequential. |
+| "The batch finished, I'll clean worktrees later" | Later is how stale worktrees and orphan branches accumulate. Clean at batch end, every time. |
+
+## Parallel batches (`∥ batch-X` tasks in the plan)
+
+When the NEXT pending tasks share a batch marker, they MAY run concurrently
+in isolated worktrees — but parallel is the user's choice, never automatic:
+
+1. **Ask the user, once per batch** (AskUserQuestion): "batch-X (tasks N,M)
+   is marked parallel-safe — run it parallel (worktrees, ~simultaneous) or
+   sequential (simpler, easier to follow)?" Include the disjointness
+   evidence one-liner from the plan. Sequential chosen → normal per-task
+   loop, no worktrees.
+2. **Verify the batch is still valid**: re-check the plan's Parallel
+   evidence against current reality (files may have appeared since
+   blueprint). Any overlap now → fall back to sequential for that batch and
+   say why.
+3. **Record base once** (`review-package.sh record-base`), then **create the
+   integration worktree** — parallel work never merges straight into the
+   working branch:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh integrate <slug>`
+4. **Create one worktree per task**:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <slug> task-N`
+   → isolated checkout + branch `smithy/<slug>/task-N`. Grants carry over
+   automatically (the guard resolves them from the main worktree).
+   All worktrees and branches are LOCAL — nothing is pushed to origin
+   unless the user explicitly asks (and each push needs its own yes).
+5. **Dispatch ALL batch agents in a SINGLE message** (parallel Agent calls,
+   forger or jigsmith per the TDD mode). Each prompt additionally names its
+   worktree path with: "Work ONLY inside <worktree-path> — it is your
+   checkout; commit there. Briefs/reports live in the MAIN repo at the
+   absolute paths given." Reports go to the main repo's
+   `docs/smithy/jobs/<slug>/reports/` (absolute paths — reports are not
+   committed to task branches).
+6. **As each agent resolves**, handle its status per the sequential loop.
+   Then per task, in plan order:
+   - review the BRANCH before absorbing:
+     `review-package.sh build <brief> <pkg> <impl-report> smithy/<slug>/task-N`
+     → inspector per `/smithy:inspect`; fix cycles re-dispatch INTO the same
+     worktree (max 2, as always);
+   - APPROVED → `worktree.sh absorb <slug> task-N` (merges into the
+     INTEGRATION branch), then `worktree.sh remove <worktree-path> --force`
+     (safe: the branch is merged; only disposable scratch remains).
+7. **Integration verification — before anything touches the working
+   branch**: in the integration worktree, run the batch tasks' verify
+   commands plus the project's test suite. Tasks that pass alone can still
+   interfere; this is where that shows up. Failure → `/smithy:anneal`
+   against the integration checkout; the working branch stays clean.
+8. **Land**: `worktree.sh land <slug>` merges the integration branch into
+   the working branch (--no-ff). Conflict (working branch moved during the
+   batch) → clean abort, escalate.
+9. **Absorb/land conflict** = the batch was NOT disjoint (or the working
+   branch drifted): the script aborts the merge cleanly. STOP, tell the
+   user which files collided, fix the plan's batch marking, and re-run the
+   conflicting task sequentially on top of what landed.
+10. **Cleanup is not optional**: at batch end — success OR failure —
+    `worktree.sh clean <slug>` removes every smithy-created worktree,
+    integration included (committed work survives on branches; the script
+    refuses unmerged branch deletion). **Exception:** a worktree the USER
+    created or named is never auto-removed (the script refuses unmarked
+    worktrees) — ask: auto-clear it or leave it?
+11. Ledger lines per task as usual; per batch:
+    `ledger.sh append forge <slug> batch-X DONE -` after landing.
+
+Parallelism budget: one batch at a time, ≤4 worktrees. Never parallelize
+unmarked tasks, whatever the temptation — the marker carries blueprint's
+disjointness proof, and the user's yes carries the authorization.
 
 ## Exit criteria
 
-Every task has DONE + APPROVED ledger lines. Update STATE.md (phase FORGE
-complete, next step: temper).
+Every task has DONE + APPROVED ledger lines; no smithy worktrees remain
+(`worktree.sh list` shows only the main worktree — plus any user worktrees,
+untouched). Update STATE.md (phase FORGE complete, next step: temper).
 
 Handoff: "All N tasks forged and approved — run `/smithy:temper` for the test pass."

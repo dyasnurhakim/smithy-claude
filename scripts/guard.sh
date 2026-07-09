@@ -22,7 +22,13 @@
 #     blocked unless a one-shot destructive token exists (consumed on use)
 set -u
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# Resolve the MAIN worktree's root (grants/tokens live there — linked
+# worktrees created for parallel tasks share the main repo's authorization).
+if COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+  PROJECT_ROOT="$(dirname "$COMMON")"
+else
+  PROJECT_ROOT="$(pwd)"
+fi
 MEM="$PROJECT_ROOT/docs/smithy"
 GRANT="$MEM/.git-grant"
 PUSH_TOKEN="$MEM/.push-once"

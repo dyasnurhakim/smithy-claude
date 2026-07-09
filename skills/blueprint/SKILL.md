@@ -16,9 +16,11 @@ Resolve your own effort: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh planning
 
 1. Verify spec exists with zero open questions
 2. Decompose into ≤8 verify-annotated tasks
-3. Write plan.md; write one self-contained brief per task
-4. Record base sha
-5. Log decisions + rejected alternatives; update STATE.md; hand off
+3. Persona pass on the plan (2–4 relevant personas, inline)
+4. Mark parallel batches (disjointness proven, evidence in plan)
+5. Write plan.md; write one self-contained brief per task
+6. Record base sha
+7. Log decisions + rejected alternatives; update STATE.md; hand off
 
 ## Preconditions
 
@@ -52,20 +54,50 @@ process, not deciding silently.
 2. **Decompose** per the rules above. Consider at least one alternative
    decomposition and note in decisions.md why you rejected it.
 
-3. **Write `docs/smithy/jobs/<slug>/plan.md`:**
+3. **Persona pass — review the PLAN before it hardens.** Pick 2–4 personas
+   relevant to the job type from `${CLAUDE_PLUGIN_ROOT}/references/personas/`
+   (security for anything with auth/input/data; sre for services/config;
+   qa always; designer + end-user for UI; support for error-heavy features;
+   plus project personas from `docs/smithy/personas/` when they exist).
+   Read each file and apply its hunt list TO THE PLAN, inline (no
+   dispatches — this is minutes, not a panel): missing tasks (no rollback
+   task? no rate limiting the spec implied? no empty-state work?),
+   untestable requirements, risks worth a task of their own. Each
+   recommendation is surfaced at the plan gate as accept / reject-with-
+   reason — recommendations improve the plan, they don't silently grow it.
+
+4. **Mark parallel batches — prove disjointness first.** Two or more tasks
+   may share a `∥ batch` marker ONLY when ALL of these hold (verify each,
+   don't eyeball):
+   - No file overlap: the union of each task's context files AND the files
+     its requirements will touch is disjoint from every other task in the
+     batch (list the file sets in the plan as evidence).
+   - No data/ordering dependency: neither task consumes the other's output,
+     schema, or exported symbols.
+   - No shared scaffolding: they don't both "create the helper if missing".
+   Default is SEQUENTIAL — an unmarked task never runs in parallel. A batch
+   is at most 4 tasks (dispatch/review overhead grows per task). When in
+   doubt, don't mark it: a false parallel marker costs a merge conflict and
+   a batch restart; a false sequential marker costs only time.
+
+5. **Write `docs/smithy/jobs/<slug>/plan.md`:**
 
    ```markdown
    # Plan — <title>
    Spec: jobs/<slug>/spec.md
-   ## Tasks (dependency order)
+   ## Tasks (dependency order; ∥ batch-X = may run in parallel)
    1. <task title> → verify: `<command>` — <expected>
+   2. ∥ batch-A <task title> → verify: `<command>` — <expected>
+   3. ∥ batch-A <task title> → verify: `<command>` — <expected>
+   ## Parallel evidence (per batch)
+   batch-A: task-2 files {src/a.ts, src/a.test.ts} ∩ task-3 files {src/b.ts, src/b.test.ts} = ∅; no cross-imports
    ## Success criteria (whole job)
    <the observable behaviors that mean "done" — temper tests against these>
    ## Rollback note
    <how to back out: branch/revert strategy>
    ```
 
-4. **Write one brief per task** at `docs/smithy/jobs/<slug>/briefs/task-N.md`
+6. **Write one brief per task** at `docs/smithy/jobs/<slug>/briefs/task-N.md`
    using EXACTLY the brief template from
    `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` — including the Report
    section's Status-line contract. Context files list ONLY what that task
@@ -77,11 +109,11 @@ process, not deciding silently.
    + the listed context files can complete the task without seeing the spec,
    the plan, or this conversation.
 
-5. **Record the base.** Run
+7. **Record the base.** Run
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
    (review packages are built from this sha — never HEAD~1).
 
-6. **Log.** Design decisions + rejected alternatives → `docs/smithy/decisions.md`
+8. **Log.** Design decisions + rejected alternatives → `docs/smithy/decisions.md`
    (≤3 lines each). Update STATE.md (phase BLUEPRINT, next step: forge task 1).
    `ledger.sh append blueprint <slug> plan DONE jobs/<slug>/plan.md`
 

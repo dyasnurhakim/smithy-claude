@@ -96,27 +96,35 @@ Everything the run produced lives in your repo under `docs/smithy/` — spec, pl
 
 ## Skills
 
-| Skill | What it does |
-|---|---|
-| `/smithy:smithy` | **Orchestrator** — runs the whole pipeline with approval gates at phase boundaries |
-| `/smithy:assay` | **Research** — explores the codebase, converts every would-be assumption into a question or recommendation, writes a spec |
-| `/smithy:blueprint` | **Planning** — turns the spec into a verify-annotated task plan + per-task briefs |
-| `/smithy:forge` | **Implementation** — dispatches the forger (or jigsmith, in TDD mode) per task, with a review after each task |
-| `/smithy:jig` | **TDD implementation** — RED→GREEN→REFACTOR per requirement with verbatim failing-test evidence; forge's `implementation.tdd` config chooses jig vs plain forge |
-| `/smithy:inspect` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
-| `/smithy:guild` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
-| `/smithy:commission` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
-| `/smithy:pattern` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `docs/smithy/DESIGN.md`, the design source of truth |
-| `/smithy:burnish` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
-| `/smithy:anneal` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
-| `/smithy:temper` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
-| `/smithy:ring-test` | **Unit tests** (ring test = tapping metal to hear flaws) |
-| `/smithy:wield` | **QA / functional testing** — severity tiers, 0–100 health score, cross-run trend fingerprints |
-| `/smithy:proof` | **Stress / load testing** (proofing = deliberate overload) — you set the SLOs, it never invents them |
-| `/smithy:hone` | **Performance** — baseline-first benchmarking, median of ≥3 runs, recommendations only |
-| `/smithy:handover` | **Session handoff** — evidence-cited summary so the next session resumes with zero re-discovery |
-| `/smithy:calibrate` | **Model routing config** — view/edit which model + effort each role uses, TDD default, gates — like `/config` |
-| `/smithy:using-smithy` | **Router** — when to use which skill, priority rules, rationalization red-flags. Injected into every session by the SessionStart hook |
+| Skill | Alias | What it does |
+|---|---|---|
+| `/smithy:smithy` | `pipeline` | **Orchestrator** — runs the whole pipeline with approval gates at phase boundaries |
+| `/smithy:assay` | `research` | **Research** — explores the codebase, converts every would-be assumption into a question or recommendation, writes a spec |
+| `/smithy:blueprint` | `plan` | **Planning** — turns the spec into a verify-annotated task plan + per-task briefs |
+| `/smithy:forge` | `implement` | **Implementation** — dispatches the forger (or jigsmith, in TDD mode) per task, with a review after each task |
+| `/smithy:jig` | `tdd` | **TDD implementation** — RED→GREEN→REFACTOR per requirement with verbatim failing-test evidence; forge's `implementation.tdd` config chooses jig vs plain forge |
+| `/smithy:inspect` | `code-review` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
+| `/smithy:guild` | `review-panel` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
+| `/smithy:commission` | `personas` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
+| `/smithy:pattern` | `design` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `docs/smithy/DESIGN.md`, the design source of truth |
+| `/smithy:burnish` | `design-review` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
+| `/smithy:anneal` | `debug` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
+| `/smithy:temper` | `test` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
+| `/smithy:ring-test` | `unit-test` | **Unit tests** (ring test = tapping metal to hear flaws) |
+| `/smithy:wield` | `qa` | **QA / functional testing** — severity tiers, 0–100 health score, cross-run trend fingerprints |
+| `/smithy:proof` | `stress-test` | **Stress / load testing** (proofing = deliberate overload) — you set the SLOs, it never invents them |
+| `/smithy:hone` | `perf-test` | **Performance** — baseline-first benchmarking, median of ≥3 runs, recommendations only |
+| `/smithy:handover` | `handoff` | **Session handoff** — evidence-cited summary so the next session resumes with zero re-discovery |
+| `/smithy:calibrate` | `config` | **Model routing config** — view/edit which model + effort each role uses, TDD default, gates — like `/config` |
+| `/smithy:using-smithy` | — | **Router** — when to use which skill, priority rules, rationalization red-flags. Injected into every session by the SessionStart hook |
+
+Aliases are plain slash commands: `/smithy:plan` = `/smithy:blueprint`, `/smithy:qa` = `/smithy:wield`, etc. Use whichever vocabulary fits your head.
+
+## Parallel execution
+
+Blueprint marks tasks `∥ batch-X` **only with proof of disjointness** (file sets listed in the plan, no cross-imports, no shared scaffolding — default is sequential). A marker is permission to *offer*, not to act: **forge asks you, per batch, parallel or sequential**.
+
+When you choose parallel: one **git worktree + branch per task** (`.smithy-wt-<repo>/` sibling dir), all agents dispatched in a single message, each branch reviewed *before* merging. Task branches merge into an **integration branch first** — the batch's combined verify commands and the test suite run there — and only a verified integration lands on your working branch (`--no-ff`). A merge conflict means the batch was mis-marked — clean abort and escalate, never hand-resolved. Everything stays **local**: no branch is pushed to origin unless you ask (each push needs its own yes). **Smithy always removes its own worktrees when the batch ends** (committed work survives on branches); worktrees *you* created are never auto-removed — it asks whether to clear or leave them.
 
 ## Agents
 

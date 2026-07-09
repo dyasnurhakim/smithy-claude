@@ -52,11 +52,15 @@ be skipped.
 
 3. **Explore the codebase.** What exists that this job touches or should
    reuse: similar features, established patterns, test conventions, affected
-   files, constraints. Every finding cites `file:line`. For broad file
-   inventories, dispatch a `mechanical`-routed general agent that returns
-   paths only (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`). Prefer
-   reusing an existing pattern over inventing one — name the pattern you'd
-   reuse and where it lives.
+   files, constraints. Every finding cites `file:line`. **Use the user's
+   configured tools first** (using-smithy rule 7): a code-graph tool named
+   in their CLAUDE.md/rules (graphify, understand-anything) beats raw grep
+   for structure questions; their memory tool (claude-mem) answers "have we
+   done this before?". Tools not in their configuration stay untouched.
+   For broad file inventories, dispatch a `mechanical`-routed general agent
+   that returns paths only (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`).
+   Prefer reusing an existing pattern over inventing one — name the pattern
+   you'd reuse and where it lives.
 
 4. **Write `docs/smithy/jobs/<slug>/spec.md`:**
 

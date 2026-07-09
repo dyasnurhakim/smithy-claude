@@ -117,6 +117,32 @@ When `implementation.tdd` resolves to TDD for a task (see `/smithy:jig`):
 - NEEDS_CONTEXT on an untestable requirement is a brief defect: fix the brief
   (blueprint) rather than pressuring the agent to implement without a jig.
 
+## 4c. Parallel dispatch (worktree isolation)
+
+Tasks marked `∥ batch-X` in the plan (blueprint proved them disjoint) MAY
+run concurrently — **the user chooses per batch** (parallel vs sequential;
+ask once, with the disjointness evidence). When parallel:
+
+- `worktree.sh integrate <job>` first — parallel work merges into an
+  INTEGRATION branch, is verified there, and only then lands on the working
+  branch (`worktree.sh land <job>`). The working branch never sees
+  unverified batch output.
+- `worktree.sh create <job> <task>` per task → path + branch
+  `smithy/<job>/<task>`; ALL batch agents dispatched in ONE message.
+- Each agent works ONLY in its worktree; reports go to the MAIN repo's
+  reports dir (absolute paths). Guard grants resolve to the main worktree
+  automatically.
+- Everything stays LOCAL: task/integration branches are never pushed to
+  origin unless the user explicitly asks (each push = its own yes + token).
+- Review the branch (`review-package.sh build ... <branch>`) BEFORE
+  absorbing; `worktree.sh absorb` merges into integration; a conflict
+  aborts cleanly and means the batch was mis-marked — escalate, don't
+  hand-resolve.
+- **Smithy-created worktrees are ALWAYS removed when their task finishes**
+  (`remove --force` post-absorb; `clean <job>` at batch end, integration
+  included). Worktrees the USER created are never auto-removed — the script
+  refuses them; ask the user: auto-clear or leave.
+
 ## 5. Review discipline
 
 - Record BASE before dispatching a forger:

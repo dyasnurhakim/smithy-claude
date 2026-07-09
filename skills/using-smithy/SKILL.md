@@ -17,28 +17,31 @@ work and skips their safeguards. If the skill turns out not to fit, you can
 say so and step out — but the check comes first.
 </CRITICAL>
 
-## Routing table — trigger → skill
+## Routing table — trigger → skill (technical alias in parentheses)
 
-| The user wants / the situation is | Skill |
+Every skill also has a plain software-engineering alias, installed as a
+slash command: `/smithy:plan` invokes `smithy:blueprint`, etc.
+
+| The user wants / the situation is | Skill (alias) |
 |---|---|
-| Build a feature end-to-end, "take this from idea to tested code" | `/smithy:smithy` (orchestrator) |
-| Understand requirements, explore before building, "write a spec" | `/smithy:assay` |
-| A spec exists; break work into tasks/plan | `/smithy:blueprint` |
-| An approved plan exists; implement it | `/smithy:forge` |
-| Implement test-first / "TDD this" / fixing a bug with a repro | `/smithy:jig` |
-| "Review this change/task/diff" | `/smithy:inspect` |
-| "Is this ready to ship?" / production-readiness / multi-perspective review | `/smithy:guild` |
-| "Who uses this system?" / define test personas / role-based QA | `/smithy:commission` |
-| "Create a design" / design system / "make it look good" (before UI work) | `/smithy:pattern` |
-| "Review/improve the design" / "polish the UI" / "why does it look off" | `/smithy:burnish` |
-| A bug, unexpected failure, "why is this broken" | `/smithy:anneal` |
-| "Test everything" after implementation | `/smithy:temper` |
-| Unit tests only | `/smithy:ring-test` |
-| "Does it actually work?" — functional QA | `/smithy:wield` |
-| "Will it survive load?" | `/smithy:proof` |
-| "Why is it slow?" / benchmark | `/smithy:hone` |
-| Ending a session, "summarize for next time" | `/smithy:handover` |
-| Change which model/effort a role uses, TDD default, gates | `/smithy:calibrate` |
+| Build a feature end-to-end, "take this from idea to tested code" | `/smithy:smithy` (`pipeline`) |
+| Understand requirements, explore before building, "write a spec" | `/smithy:assay` (`research`) |
+| A spec exists; break work into tasks/plan | `/smithy:blueprint` (`plan`) |
+| An approved plan exists; implement it | `/smithy:forge` (`implement`) |
+| Implement test-first / "TDD this" / fixing a bug with a repro | `/smithy:jig` (`tdd`) |
+| "Review this change/task/diff" | `/smithy:inspect` (`code-review`) |
+| "Is this ready to ship?" / multi-perspective review | `/smithy:guild` (`review-panel`) |
+| "Who uses this system?" / define test personas | `/smithy:commission` (`personas`) |
+| "Create a design" / design system (before UI work) | `/smithy:pattern` (`design`) |
+| "Review/improve the design" / "polish the UI" | `/smithy:burnish` (`design-review`) |
+| A bug, unexpected failure, "why is this broken" | `/smithy:anneal` (`debug`) |
+| "Test everything" after implementation | `/smithy:temper` (`test`) |
+| Unit tests only | `/smithy:ring-test` (`unit-test`) |
+| "Does it actually work?" — functional QA | `/smithy:wield` (`qa`) |
+| "Will it survive load?" | `/smithy:proof` (`stress-test`) |
+| "Why is it slow?" / benchmark | `/smithy:hone` (`perf-test`) |
+| Ending a session, "summarize for next time" | `/smithy:handover` (`handoff`) |
+| Change model/effort routing, TDD default, gates | `/smithy:calibrate` (`config`) |
 
 ## Priority rules
 
@@ -58,6 +61,15 @@ say so and step out — but the check comes first.
 6. **Git is guarded deterministically.** A PreToolUse hook blocks push,
    history rewrites, and ungranted commits in smithy projects. A block is
    the system working — report it, never work around it (creed §6).
+7. **Honor the user's companion tools — and only theirs.** If the user's
+   configuration (global/project CLAUDE.md, rules files) names tools like
+   claude-mem (cross-session recall), graphify / understand-anything
+   (codebase graphs), context7 (library docs), or their own MCP servers,
+   USE them where they fit the phase — e.g. assay explores via the user's
+   code-graph tool instead of raw grep, "did we solve this before?" goes to
+   their memory tool — and follow the user's own routing rules for them.
+   If a tool is NOT in the user's configuration, do not reach for it.
+   Smithy never assumes an ecosystem it wasn't told about.
 
 ## Red flags — these thoughts mean STOP
 

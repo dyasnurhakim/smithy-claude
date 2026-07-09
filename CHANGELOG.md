@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.6.0 — unreleased
+
+Parallel execution, worktree isolation, technical aliases.
+
+- **Blueprint parallel batches**: tasks marked `∥ batch-X` only with proven
+  disjointness (file-set evidence in the plan; no cross-imports/shared
+  scaffolding; ≤4 per batch; default sequential)
+- **Forge parallel execution — user-gated, integration-staged**: a batch
+  marker is an offer, not an order — forge asks parallel vs sequential per
+  batch. Parallel: one git worktree + branch per task via
+  scripts/worktree.sh, single-message dispatch, per-branch review BEFORE
+  absorb; absorbs land on an INTEGRATION branch (worktree.sh integrate)
+  where the batch's verify commands + test suite run before
+  `worktree.sh land` merges into the working branch; conflict = mis-marked
+  batch → clean abort + escalate; all branches LOCAL unless the user asks
+  to push; smithy-created worktrees ALWAYS removed at batch end
+  (marker-authorized); user-created worktrees never auto-removed — asks
+  auto-clear vs leave
+- **Blueprint persona pass**: 2–4 job-relevant personas (+ project
+  personas) applied to the PLAN inline before it hardens — missing tasks,
+  untestable requirements, risks worth their own task; recommendations
+  accepted/rejected at the plan gate
+- **Companion-tool honoring** (using-smithy rule 7 + creed §0): tools named
+  in the user's CLAUDE.md/rules (claude-mem, graphify, understand-anything,
+  context7, …) are used where they fit the phase, per the user's own
+  routing; tools not in the user's configuration are never assumed
+- **guard.sh worktree-aware**: grants/tokens resolve to the MAIN worktree
+  via git-common-dir, so parallel task commits honor the plan-gate grant
+- **review-package.sh** gains a ref argument (review a task branch before
+  merging it)
+- **18 technical aliases** as command shims (/smithy:plan → blueprint,
+  /smithy:qa → wield, /smithy:tdd → jig, /smithy:debug → anneal, …) —
+  full table in README and using-smithy
+- tests/worktree-matrix.sh: 16-case lifecycle matrix (create/absorb/remove/
+  clean, guard-in-worktree, user-worktree refusal, conflict abort)
+
 ## 0.5.0 — unreleased
 
 Proof-carrying reviews.

@@ -10,7 +10,9 @@ The user's own rules — global `~/.claude/CLAUDE.md`, project `CLAUDE.md`/
 conflict. Surface the conflict in one line when honoring the user rule, then
 honor it. Smithy's guard hook is deliberately stricter than typical user
 rules; a user rule can loosen your behavior only when the user states it
-explicitly in this session.
+explicitly in this session. The user's TOOL choices are part of their
+rules: companion tools named in their configuration (memory, code-graph,
+docs tools) are used per their routing; tools not named are never assumed.
 
 ## 1. Never assume
 
