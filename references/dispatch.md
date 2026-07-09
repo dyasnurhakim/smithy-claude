@@ -64,12 +64,9 @@ schema: 1
 kind: brief
 job: <slug>
 unit: task-N
-artifacts:
-  - docs/smithy/jobs/<slug>/briefs/task-N.md
 key_facts:
   - <carried forward from prior reports — or empty list []>
 concerns: []
-next_action: "implement task-N"
 ---
 # Task N: <title>
 ## Context files (read these, nothing else)
@@ -95,6 +92,10 @@ Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 | DONE_WITH_CONCERNS | Done, but concerns listed | Triage each concern before proceeding |
 | NEEDS_CONTEXT | Blocked on a specific question | Answer it (or ask the user), re-dispatch |
 | BLOCKED | Cannot proceed (env, permissions, contradiction) | Resolve or escalate to user; consider model bump |
+
+Per-task reports are TRANSIENT: they exist for machine-read status, review
+packages, and fix cycles — at forge exit they are consolidated into ONE
+`reports/forge-report.md` and the per-task files are deleted.
 
 Read a report's status from its envelope:
 `bash ${CLAUDE_PLUGIN_ROOT}/scripts/envelope.sh get <report> status`.

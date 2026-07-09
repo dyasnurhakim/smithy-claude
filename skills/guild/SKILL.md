@@ -1,6 +1,6 @@
 ---
 name: guild
-description: Production-readiness review panel — parallel inspector agents with different personas (master engineer/security/QA/UIUX/SRE + patron end-user/product/marketing/support) judge the whole job and return one PRODUCTION_READY or NOT_READY verdict. Use when asked to "guild", "guild review", "production readiness review", "is this ready to ship", or automatically between forge and temper.
+description: "Production-readiness panel: parallel persona reviewers (masters=craft, patrons=experience) → one PRODUCTION_READY|NOT_READY verdict. Triggers: 'guild', 'ready to ship?'."
 ---
 
 # Guild — Production-Readiness Panel
@@ -25,13 +25,25 @@ per task; per-task review stays with the solo `/smithy:inspect`.
 5. Synthesize: dedupe, verify evidence, tag craft/experience
 6. Verdict written (md + json), ledger logged, findings routed
 
-## 1. Build the package
+## 1. Build the packages — scoped per persona family
 
 Whole job, not one task: base = the job's base sha recorded at blueprint
-(STATE.md). Standalone: ask the user for the base ref.
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build docs/smithy/jobs/<slug>/plan.md docs/smithy/jobs/<slug>/reports/guild-pkg.md`
-(the plan stands in as the "brief" — the guild reviews against the whole
-plan's success criteria plus the spec.)
+(STATE.md). Standalone: ask the user for the base ref. Build the FULL
+package plus SCOPED slices (a persona pays only for the diff it judges —
+every slice keeps the plan and the complete changed-file list, so
+cross-cutting context survives):
+
+```
+P=docs/smithy/jobs/<slug>; R=$P/reports
+review-package.sh build $P/plan.md $R/guild-pkg.md          # full — engineer, security, qa, product
+review-package.sh build $P/plan.md $R/guild-pkg-ui.md "" HEAD '*.tsx' '*.vue' '*.svelte' '*.css' '*.html' 'src/components/*' 'src/pages/*'   # uiux, designer, end-user, marketing
+review-package.sh build $P/plan.md $R/guild-pkg-infra.md "" HEAD 'Dockerfile*' 'k8s/*' 'terraform/*' '.github/*' '*migrations*' '*.config.*' '*.env.example'   # sre, support
+```
+
+Adjust the pathspecs to the repo's real layout (check the file list first —
+a slice that misses the repo's actual UI dir is worse than the full
+package). A persona whose slice would be near-empty gets the full package
+instead.
 
 ## 2. Select the roster
 
@@ -81,7 +93,9 @@ from spec.md/STATE.md — or ask; never guess a URL):
 Resolve routing ONCE: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh review`.
 Dispatch ALL selected personas as `smithy:inspector` agents in a SINGLE
 message (parallel Agent calls). Each prompt = effort banner + paths only:
-persona file, guild package, creed, report output path
+persona file, that persona's SCOPED package (full for engineer/security/
+qa/product; ui slice for uiux/designer/end-user/marketing; infra slice for
+sre/support), creed, report output path
 `docs/smithy/jobs/<slug>/reports/guild-<persona>.md`, the live-target block
 (step 3, when applicable) + the verbatim Do-Not-Trust-the-Report line.
 Remind each: EVERY finding needs proof per the inspector evidence contract.

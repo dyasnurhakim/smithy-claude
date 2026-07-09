@@ -1,6 +1,6 @@
 ---
 name: smithy
-description: Run the full smithy dev pipeline (research → plan → implement → review → test) with approval gates between phases, resuming from project memory. Use when asked to "run smithy", "build this feature end to end", "full pipeline", "take this from idea to tested code", or to resume interrupted smithy work.
+description: "Full pipeline orchestrator (research→plan→implement→review→test) with approval gates and ledger resume. Triggers: 'run smithy', 'build end to end', 'full pipeline', resume smithy work."
 ---
 
 # Smithy — Pipeline Orchestrator

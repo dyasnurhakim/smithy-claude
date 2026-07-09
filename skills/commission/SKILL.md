@@ -1,6 +1,6 @@
 ---
 name: commission
-description: Generate project-level test personas from the project's real user roles — who uses this system, what they're trying to do, what failure costs them. Personas are then used by wield (per-persona QA flows) and the guild's patron-end-user. Use when asked to "commission", "create test personas", "define the users/roles", or before the first serious QA pass on a project.
+description: "Generate project test personas from real user roles (evidence + interview); powers per-persona QA and guild judgment. Triggers: 'commission', 'define the users'."
 ---
 
 # Commission — Project Personas

@@ -29,8 +29,16 @@ case "${1:-}" in
     echo "base=$sha"
     ;;
   build)
-    [ $# -ge 3 ] || { echo "usage: review-package.sh build <brief> <out> [impl-report] [ref]" >&2; exit 2; }
+    [ $# -ge 3 ] || { echo "usage: review-package.sh build <brief> <out> [impl-report] [ref] [pathspec...]" >&2; exit 2; }
     brief="$2"; out="$3"; report="${4:-}"; ref="${5:-HEAD}"
+    shift; shift; shift; [ $# -gt 0 ] && shift; [ $# -gt 0 ] && shift
+    # remaining args = optional pathspecs to scope the diff (persona slices)
+    PATHSPEC=("$@")
+    # diff context lines: docs/smithy/config.json review_diff_context, default 5
+    U="$(python3 -c "
+import json,sys
+try: print(int(json.load(open('$PROJECT_ROOT/docs/smithy/config.json')).get('review_diff_context',5)))
+except Exception: print(5)" 2>/dev/null || echo 5)"
     [ -f "$brief" ] || { echo "review-package.sh: brief not found: $brief" >&2; exit 1; }
     base="$(grep -m1 '^- Base sha:' "$STATE" 2>/dev/null | awk '{print $4}')" || true
     [ -n "${base:-}" ] && [ "$base" != "none" ] || { echo "review-package.sh: no base sha in $STATE — run record-base first" >&2; exit 1; }
@@ -50,18 +58,23 @@ case "${1:-}" in
       echo
       git -C "$PROJECT_ROOT" log --oneline "$base..$ref"
       echo
-      echo "## Diff Stat"
+      echo "## Changed files (full list, before any path scoping)"
       echo
       git -C "$PROJECT_ROOT" diff --stat "$base..$ref"
       echo
-      echo "## Full Diff (-U10)"
-      echo
-      git -C "$PROJECT_ROOT" diff -U10 "$base..$ref"
+      if [ ${#PATHSPEC[@]} -gt 0 ]; then
+        echo "## Diff (-U$U) — SCOPED to: ${PATHSPEC[*]} (full file list above)"
+        echo
+        git -C "$PROJECT_ROOT" diff -U"$U" "$base..$ref" -- "${PATHSPEC[@]}"
+      else
+        echo "## Full Diff (-U$U)"
+        echo
+        git -C "$PROJECT_ROOT" diff -U"$U" "$base..$ref"
+      fi
       if [ -n "$report" ] && [ -f "$report" ]; then
         echo
         echo "## Implementor Report (UNVERIFIED — do not trust; verify every claim)"
-        echo
-        cat "$report"
+        echo "Read it at: $report"
       fi
     } > "$out"
     echo "package=$out lines=$(wc -l < "$out")"

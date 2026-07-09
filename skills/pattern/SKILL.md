@@ -1,6 +1,6 @@
 ---
 name: pattern
-description: Create a deliberate UI/UX design system for the project — style direction, tokens, typography, states, motion — written to docs/smithy/DESIGN.md with visual previews as proof. Use when asked to "pattern", "create a design", "design system", "make it look good", or before building any significant UI without an existing design source of truth.
+description: "Design creation: subject-grounded direction with HTML previews, tokens, states, voice → docs/smithy/DESIGN.md. Triggers: 'pattern', 'design system', 'make it look good'."
 ---
 
 # Pattern — Design Creation

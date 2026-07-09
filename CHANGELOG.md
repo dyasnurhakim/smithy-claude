@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.7.0 — unreleased
+
+Token efficiency (typical pipeline run ~30–45% lighter; every session ~2k
+tokens lighter) + deeper plan review.
+
+- SessionStart hook injects a ~10-line digest (routing one-liner + 5 iron
+  rules) instead of the full using-smithy skill (~115 lines); full router
+  loads on demand
+- Read-once rule (creed §7 + digest): reference files read once per
+  session, re-read only post-compaction
+- All 19 skill descriptions trimmed ~60% (aliases untouched); YAML-quoted
+- Review packages: diff context -U10 → -U5 (config `review_diff_context`),
+  implementor report referenced by PATH instead of embedded
+- Guild packages scoped per persona family: full (engineer/security/qa/
+  product), UI slice (uiux/designer/end-user/marketing), infra slice
+  (sre/support) — every slice keeps the plan + complete file list
+- Verbatim evidence blocks capped at ~25 lines (agents + creed); overflow
+  goes to reports/raw/ by path
+- Brief envelopes travel light: artifacts/next_action optional for
+  kind: brief (validator updated)
+- Blueprint persona pass DEEPENED, not trimmed: structured per-persona ×
+  per-task assessment table inline, plus an optional dispatched deep pass
+  (1–3 persona overlays reviewing the PLAN itself in isolated contexts,
+  offered for auth/payments/migration/public-UI jobs)
+
+## 0.6.1 — unreleased
+
+- **One report per forge run, not per task**: per-task files
+  (task-N-impl/review/pkg.md) are now explicitly TRANSIENT scratch — still
+  written during the loop (review packages and machine-read statuses need
+  them) but consolidated into a single `reports/forge-report.md`
+  (envelope kind: forge-report; per-task summary table, carried concerns)
+  and deleted at forge exit. Standalone single-task runs write the
+  consolidated report directly.
+
 ## 0.6.0 — unreleased
 
 Parallel execution, worktree isolation, technical aliases.

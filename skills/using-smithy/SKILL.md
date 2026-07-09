@@ -1,6 +1,6 @@
 ---
 name: using-smithy
-description: Use when starting any conversation in a project where smithy is installed — establishes when to use which smithy skill, the priority rules between them, and the rationalizations that lead to skipping them. Injected automatically by the SessionStart hook.
+description: "Skill router: when to use which smithy skill, priority rules, red-flag rationalizations. Injected as a digest each session; invoke for the full router."
 ---
 
 # Using Smithy

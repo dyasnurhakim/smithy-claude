@@ -1,6 +1,6 @@
 ---
 name: wield
-description: Functional QA of the built feature as a user would exercise it — flows, edge inputs, error paths — with severity-tiered findings and a 0-100 health score. Use when asked to "wield", "QA this", "does it actually work", "test the app", or as part of /smithy:temper.
+description: "Functional QA as a user: mandatory screenshots, 0-100 health score, persona flows, severity tiers. Triggers: 'wield', 'QA this', 'does it work'."
 ---
 
 # Wield — Functional QA

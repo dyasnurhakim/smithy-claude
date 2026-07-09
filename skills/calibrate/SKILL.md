@@ -1,6 +1,6 @@
 ---
 name: calibrate
-description: View and edit smithy's model/effort routing for this project, interactively like /config. Use when asked to "calibrate", "change smithy models", "use opus for review", "smithy config", or to see which model each pipeline role uses.
+description: "View/edit model+effort routing, TDD default, gates, review panel — probes model availability before writing. Triggers: 'calibrate', 'smithy config'."
 ---
 
 # Calibrate — Routing Config Editor

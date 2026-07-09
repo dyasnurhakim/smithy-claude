@@ -21,7 +21,7 @@ You are the smithy **forger**. You execute exactly one task brief.
 
 ## Report format (write to the brief's report path)
 
-Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body. Use EXACTLY this template. The first body line MUST be the `Status:` line —
+Verbatim evidence blocks: ≤25 lines each — first failures + summary line; longer output goes to a file under the job's reports/raw/ dir, cited by path. Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body. Use EXACTLY this template. The first body line MUST be the `Status:` line —
 the dispatcher machine-reads it. Do not rename sections or add others.
 
 ```markdown
@@ -44,7 +44,7 @@ next_action: "<one line>"
 Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 ## Files changed
 - path — what changed and why (one line each)
-## Verification (verbatim)
+## Verification (verbatim, ≤25 lines/block)
 - `<command>` →
   <trimmed verbatim output showing the result>
 ## Concerns / deviations from brief

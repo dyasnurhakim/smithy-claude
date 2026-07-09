@@ -1,6 +1,6 @@
 ---
 name: ring-test
-description: Unit-test the changed code — write missing tests, run the suite, report against the plan's success criteria. Use when asked to "ring-test", "unit test this", "add tests", "run the unit tests", or as part of /smithy:temper.
+description: "Unit tests per the stack playbook (write missing, run, flag flakes). Triggers: 'ring-test', 'unit test this'."
 ---
 
 # Ring-Test — Unit Tests

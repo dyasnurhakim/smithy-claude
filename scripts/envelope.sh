@@ -33,14 +33,20 @@ case "${1:-}" in
       echo "envelope: line 1 is not '---smithy'" >&2; exit 1
     fi
     env_body="$(extract "$f")" || { echo "envelope: no closing '---'" >&2; exit 1; }
-    for req in schema kind job unit next_action; do
+    kind="$(echo "$env_body" | sed -n 's/^kind:[[:space:]]*//p' | head -1)"
+    # briefs travel light: artifacts/next_action optional (key_facts/concerns stay required)
+    if [ "$kind" = "brief" ]; then
+      req_fields="schema kind job unit"; req_lists="key_facts concerns"
+    else
+      req_fields="schema kind job unit next_action"; req_lists="artifacts key_facts concerns"
+    fi
+    for req in $req_fields; do
       echo "$env_body" | grep -q "^$req:" || { echo "envelope: missing required field '$req'" >&2; ok=1; }
     done
-    for lst in artifacts key_facts concerns; do
+    for lst in $req_lists; do
       echo "$env_body" | grep -q "^$lst:" || { echo "envelope: missing required list '$lst'" >&2; ok=1; }
     done
-    kind="$(echo "$env_body" | sed -n 's/^kind:[[:space:]]*//p' | head -1)"
-    case " brief impl-report review-verdict rca test-report guild-verdict persona " in
+    case " brief impl-report review-verdict rca test-report guild-verdict forge-report persona " in
       *" $kind "*) ;;
       *) echo "envelope: unknown kind '$kind'" >&2; ok=1 ;;
     esac

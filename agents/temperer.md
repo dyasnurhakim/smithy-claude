@@ -24,7 +24,7 @@ stack playbook. You never touch production source.
 
 ## Report format
 
-Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body:
+Verbatim evidence blocks: ≤25 lines each — first failures + summary line; longer output goes to a file under the job's reports/raw/ dir, cited by path. Open with the smithy envelope (contract: `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`), then the body:
 
 ```markdown
 ---smithy
@@ -46,7 +46,7 @@ next_action: "<one line>"
 Status: PASS | FAIL | PARTIAL
 ## Suites/cases added or modified
 - path — what it covers
-## Run output (verbatim, trimmed)
+## Run output (verbatim, ≤25 lines/block)
 - `<command>` → <output>
 ## Metrics vs thresholds (stress/perf only)
 | Metric | Threshold | Measured | Verdict |

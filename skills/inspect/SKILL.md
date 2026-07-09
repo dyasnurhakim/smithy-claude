@@ -1,6 +1,6 @@
 ---
 name: inspect
-description: Two-verdict code review (spec compliance + code quality) of a diff against its brief, via the read-only inspector agent. Use when asked to "inspect", "review this task", "review my changes", or automatically inside /smithy:forge.
+description: "Two-verdict code review (spec compliance + quality); findings need evidence, severity rationale, confidence. Triggers: 'inspect', 'review this change'."
 ---
 
 # Inspect — Two-Verdict Review

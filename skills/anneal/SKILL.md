@@ -1,6 +1,6 @@
 ---
 name: anneal
-description: Systematic root-cause debugging — reproduce the failure, dispatch a read-only annealer for RCA, then apply the approved minimal fix with a regression test. Use when asked to "anneal", "debug this", "find the root cause", "why is this broken", or when tests fail unexpectedly in the pipeline.
+description: "Debugging: reproduce → read-only RCA → approved minimal fix + regression test (always TDD). Triggers: 'anneal', 'debug', 'why is this broken'."
 ---
 
 # Anneal — Debug via Root Cause

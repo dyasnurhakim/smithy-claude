@@ -32,16 +32,16 @@ next_action: "build review package for task-3"
 | Field | Required | Values / notes |
 |---|---|---|
 | `schema` | always | `1` — bump only on breaking format change |
-| `kind` | always | `brief` \| `impl-report` \| `review-verdict` \| `rca` \| `test-report` \| `guild-verdict` \| `persona` |
+| `kind` | always | `brief` \| `impl-report` \| `review-verdict` \| `rca` \| `test-report` \| `guild-verdict` \| `forge-report` \| `persona` |
 | `job` | always | kebab-case slug (`-` for ad-hoc) |
 | `unit` | always | `task-3`, `rca-1`, `wield`, `panel`, … |
 | `agent` | reports | `forger` \| `jigsmith` \| `inspector` \| `inspector:<persona>` \| `annealer` \| `temperer` \| `controller` |
 | `status` | reports/verdicts | the ledger vocabulary: `DONE DONE_WITH_CONCERNS NEEDS_CONTEXT BLOCKED APPROVED REJECTED PASS FAIL PARTIAL`; guild-verdict: `PRODUCTION_READY \| NOT_READY` |
 | `confidence` | reports | 1–10; 9–10 only when verified by running/reading (creed §2) |
-| `artifacts` | always | list of repo-relative paths this message produced/references |
+| `artifacts` | reports/verdicts (optional for `brief`) | list of repo-relative paths this message produced/references |
 | `key_facts` | always (may be `[]`) | facts a downstream agent MUST know — see below |
 | `concerns` | always (may be `[]`) | unresolved worries, one line each |
-| `next_action` | always | one line: what should happen next |
+| `next_action` | reports/verdicts (optional for `brief`) | one line: what should happen next |
 
 Lists are YAML block style (`- item`), strings quoted when they contain `:`.
 Keep every list item to ONE line. No nested structures — flat by design so

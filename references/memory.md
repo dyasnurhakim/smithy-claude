@@ -15,7 +15,9 @@ docs/smithy/
     ├── spec.md              # assay output
     ├── plan.md              # blueprint output
     ├── briefs/task-N.md     # per-task forger briefs
-    ├── reports/             # task-N-impl.md, task-N-review.md, rca-*.md, test-*.md, temper-summary.md
+    ├── reports/             # forge-report.md (per-task files are transient scratch,
+    │                        #   consolidated + deleted at forge exit), rca-*.md,
+    │                        #   test-*.md, temper-summary.md, guild-verdict.md/json
     └── handoff.md           # handover output (overwritten each handoff)
 ```
 

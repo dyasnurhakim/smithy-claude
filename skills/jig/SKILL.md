@@ -1,6 +1,6 @@
 ---
 name: jig
-description: Test-driven implementation — the TDD path through smithy. Runs a task (or whole plan) RED→GREEN→REFACTOR via the jigsmith agent, with verbatim failing-test evidence per requirement. Use when asked to "jig", "TDD this", "test-first", "test-driven", or when forge's TDD mode is on.
+description: "TDD implementation: RED→GREEN→REFACTOR per requirement with verbatim failing-test evidence. Triggers: 'jig', 'TDD this', 'test-first', bug fixes."
 ---
 
 # Jig — Test-Driven Implementation

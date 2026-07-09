@@ -1,6 +1,6 @@
 ---
 name: forge
-description: Execute an approved smithy plan by dispatching the forger (or jigsmith, in TDD mode) per task brief, with a code review after every task. Use when asked to "forge", "implement the plan", "execute the blueprint", or after /smithy:blueprint.
+description: "Execute the approved plan task-by-task (forger or jigsmith), review after every task, parallel batches in worktrees. Triggers: 'forge', 'implement the plan'."
 ---
 
 # Forge — Implementation Loop
@@ -173,10 +173,47 @@ Parallelism budget: one batch at a time, ≤4 worktrees. Never parallelize
 unmarked tasks, whatever the temptation — the marker carries blueprint's
 disjointness proof, and the user's yes carries the authorization.
 
+## Exit: consolidate into ONE report
+
+Per-task files (`task-N-impl.md`, `task-N-review.md`, `task-N-pkg.md`) are
+TRANSIENT scratch — needed while the loop runs (review packages embed them,
+statuses are machine-read from them), worthless after. When every task is
+DONE + APPROVED:
+
+1. Write `docs/smithy/jobs/<slug>/reports/forge-report.md` — the single
+   surviving report. Envelope (kind: forge-report, unit: all, agent:
+   controller, status: DONE; carry forward every unresolved
+   key_facts/concerns item from ALL task reports) + body:
+
+   ```markdown
+   # Forge Report — <job>
+   ## Summary
+   <N tasks, M commits, batches run, fix cycles needed — five lines max>
+   | Task | Status | Review | Commits | Mode |
+   |------|--------|--------|---------|------|
+   | task-1 | DONE | APPROVED | <shas> | jigsmith \| forger \| ∥ batch-A |
+   ## Per-task notes (only what the next phase needs)
+   ### task-N — <title>
+   <files changed, verification one-liner, concerns kept, deviations>
+   ## Review findings resolved / deferred
+   ## Carried concerns (verbatim from task envelopes)
+   ```
+
+2. DELETE the per-task scratch: `rm docs/smithy/jobs/<slug>/reports/task-*-impl.md
+   task-*-review.md task-*-pkg.md` — the consolidated report supersedes
+   them. (Old ledger lines still name them; that's history, and the
+   forge-report notes the consolidation.)
+
+3. Log: `ledger.sh append forge <slug> report DONE jobs/<slug>/reports/forge-report.md`
+
+Standalone single-task runs (and standalone `/smithy:jig`) write the
+consolidated report directly — same filename, one task row.
+
 ## Exit criteria
 
-Every task has DONE + APPROVED ledger lines; no smithy worktrees remain
-(`worktree.sh list` shows only the main worktree — plus any user worktrees,
-untouched). Update STATE.md (phase FORGE complete, next step: temper).
+Every task has DONE + APPROVED ledger lines; ONE forge-report.md exists and
+the per-task scratch is gone; no smithy worktrees remain (`worktree.sh list`
+shows only the main worktree — plus any user worktrees, untouched). Update
+STATE.md (phase FORGE complete, next step: temper).
 
-Handoff: "All N tasks forged and approved — run `/smithy:temper` for the test pass."
+Handoff: "All N tasks forged and approved — report at `reports/forge-report.md`; run `/smithy:temper` for the test pass."

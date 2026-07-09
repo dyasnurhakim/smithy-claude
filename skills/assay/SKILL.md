@@ -1,6 +1,6 @@
 ---
 name: assay
-description: Research and requirements analysis before planning — explores the codebase, converts every would-be assumption into a question or recommendation, writes a spec. Use when asked to "assay", "research this feature", "investigate before building", "write a spec", or as the first phase of the smithy pipeline.
+description: "Research → spec: explores the codebase, turns every assumption into a question or recommendation. Triggers: 'assay', 'research this', 'write a spec'."
 ---
 
 # Assay — Research & Spec

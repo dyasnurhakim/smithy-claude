@@ -1,6 +1,6 @@
 ---
 name: burnish
-description: Review the current UI/UX against the design system (or sound heuristics) with screenshot evidence, then improve it — surgical fixes with before/after proof. Use when asked to "burnish", "review the design", "improve the UI/UX", "polish the look", "why does this look off", or after UI work lands.
+description: "Design review & improvement: screenshot the live UI, judge vs DESIGN.md, gated surgical fixes with before/after proof. Triggers: 'burnish', 'polish the UI'."
 ---
 
 # Burnish — Design Review & Improvement

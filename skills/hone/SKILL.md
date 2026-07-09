@@ -1,6 +1,6 @@
 ---
 name: hone
-description: Profile and benchmark hot paths, find regressions against a baseline, recommend targeted optimizations. Use when asked to "hone", "profile this", "why is it slow", "benchmark", or as part of /smithy:temper.
+description: "Performance: baseline-first benchmarks (median of ≥3), profiler-evidenced hot spots, recommendations only. Triggers: 'hone', 'why is it slow', 'benchmark'."
 ---
 
 # Hone — Performance

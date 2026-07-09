@@ -101,5 +101,13 @@ never fight the hook:
 - Hand artifacts over as **file paths, never pasted content**. Everything
   pasted into a prompt stays resident in context for the rest of the session.
 - Reports go to files; return only status, one-line summary, and concerns.
+- **Read-once rule**: each reference file (creed, memory, dispatch, envelope,
+  stacks) is read ONCE per session — skip a preamble's "read X" if X is
+  already in context. Re-read only after compaction (recollection of file
+  contents doesn't survive it; the rule about trusting the ledger applies
+  to yourself too).
+- Verbatim evidence blocks in reports are capped at ~25 lines each (first
+  failures + the summary line); longer output goes to a file under
+  `reports/raw/` and is cited by path.
 - Memory writes happen only at skill start, unit completion, and phase
   boundaries — bookkeeping must never outweigh the work.

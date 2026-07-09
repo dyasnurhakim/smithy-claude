@@ -1,6 +1,6 @@
 ---
 name: handover
-description: Write a session handoff so the next session or a teammate resumes with zero re-discovery. Use when asked to "handover", "handoff", "save session", "write a summary for next time", or before ending a long working session.
+description: "Evidence-cited session handoff; next session resumes with zero re-discovery. Triggers: 'handover', 'handoff', 'save session'."
 ---
 
 # Handover — Session Handoff

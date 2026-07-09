@@ -1,6 +1,6 @@
 ---
 name: proof
-description: Stress/load-test a running service — concurrency, sustained load, spike behavior — against user-set thresholds. Use when asked to "proof", "stress test", "load test", "will it hold up under load", or as part of /smithy:temper when a service exists.
+description: "Stress/load test a running service against user-set thresholds (never invented). Triggers: 'proof', 'stress test', 'load test'."
 ---
 
 # Proof — Stress Test

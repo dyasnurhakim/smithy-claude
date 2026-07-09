@@ -1,6 +1,6 @@
 ---
 name: temper
-description: Full test pass — runs ring-test (unit), wield (QA), proof (stress), and hone (perf) in sequence and produces one consolidated READY / NOT READY verdict. Use when asked to "temper", "test everything", "full test pass", or after /smithy:forge completes.
+description: "Testing umbrella: runs ring-test/wield/proof/hone, one READY|NOT READY verdict. Triggers: 'temper', 'test everything'."
 ---
 
 # Temper — Testing Umbrella

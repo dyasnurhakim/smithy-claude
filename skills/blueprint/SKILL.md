@@ -1,6 +1,6 @@
 ---
 name: blueprint
-description: Turn a spec into a verify-annotated implementation plan and per-task briefs. Use when asked to "blueprint", "plan this feature", "break this into tasks", or after /smithy:assay produced a spec.
+description: "Spec → verify-annotated plan + self-contained task briefs, persona pass, parallel batch markers. Triggers: 'blueprint', 'plan this', 'break into tasks'."
 ---
 
 # Blueprint — Plan & Briefs
@@ -54,17 +54,39 @@ process, not deciding silently.
 2. **Decompose** per the rules above. Consider at least one alternative
    decomposition and note in decisions.md why you rejected it.
 
-3. **Persona pass — review the PLAN before it hardens.** Pick 2–4 personas
-   relevant to the job type from `${CLAUDE_PLUGIN_ROOT}/references/personas/`
-   (security for anything with auth/input/data; sre for services/config;
-   qa always; designer + end-user for UI; support for error-heavy features;
-   plus project personas from `docs/smithy/personas/` when they exist).
-   Read each file and apply its hunt list TO THE PLAN, inline (no
-   dispatches — this is minutes, not a panel): missing tasks (no rollback
-   task? no rate limiting the spec implied? no empty-state work?),
-   untestable requirements, risks worth a task of their own. Each
-   recommendation is surfaced at the plan gate as accept / reject-with-
-   reason — recommendations improve the plan, they don't silently grow it.
+3. **Persona pass — review the PLAN before it hardens.** Two depths; the
+   deep path runs in ISOLATED agent contexts, so its thinking never bloats
+   this session.
+
+   **3a. Inline pass (always).** Pick 2–4 personas relevant to the job type
+   from `${CLAUDE_PLUGIN_ROOT}/references/personas/` (security for anything
+   with auth/input/data; sre for services/config; qa always; designer +
+   end-user for UI; support for error-heavy features; plus project personas
+   from `docs/smithy/personas/`). Read each file and produce a STRUCTURED
+   assessment — per persona × per task, not vague vibes:
+
+   | Persona | Task | Finding | Type | Proposed change |
+
+   (Type: missing-task, untestable-requirement, risk-needs-task,
+   scope-question, sequencing) — plus a "whole-plan" row per persona for
+   gaps no task covers (rollback? rate limiting the spec implied? empty
+   states? migration path?).
+
+   **3b. Deep pass (dispatched — offer it for high-stakes plans).** When
+   the job touches auth/payments/data-migration/public UI, or the user
+   asks: dispatch 1–3 personas as PARALLEL `smithy:inspector` overlays
+   (routing role `review`, effort high) whose package is the PLAN + SPEC
+   paths themselves — a plan review, not a code review. Their verdict
+   format: per-task risk table + missing-task recommendations + the
+   single-biggest-threat narrative. Fresh contexts think deeper than an
+   inline skim, cost nothing in this session's context, and their reports
+   land in `reports/plan-review-<persona>.md`. Note the cost (N review-
+   routed agents) when offering.
+
+   Every recommendation from either pass is surfaced at the plan gate as
+   accept / reject-with-reason — recommendations improve the plan, they
+   don't silently grow it. Accepted ones become plan changes BEFORE briefs
+   are written.
 
 4. **Mark parallel batches — prove disjointness first.** Two or more tasks
    may share a `∥ batch` marker ONLY when ALL of these hold (verify each,
