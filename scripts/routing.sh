@@ -14,12 +14,50 @@ DEFAULTS="$SCRIPT_DIR/../defaults/config.json"
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 PROJECT_CONFIG="$PROJECT_ROOT/docs/smithy/config.json"
 
-VALID_MODELS="fable opus sonnet haiku inherit"
+CLAUDE_MODELS="fable opus sonnet haiku"
+CODEX_MODELS="sol terra luna"
+VALID_MODELS="$CLAUDE_MODELS $CODEX_MODELS inherit"   # configs may use either family
 VALID_EFFORTS="low medium high max"
 ROLES="research planning implementation review debugging testing mechanical"
 
+# translate <model> <harness> — map a model into the active harness's family
+translate() {
+  local m="$1" h="$2"
+  if [ "$h" = "codex" ]; then
+    case "$m" in fable|opus) echo sol ;; sonnet) echo terra ;; haiku) echo luna ;; *) echo "$m" ;; esac
+  else
+    case "$m" in sol) echo opus ;; terra) echo sonnet ;; luna) echo haiku ;; *) echo "$m" ;; esac
+  fi
+}
+
+# is_model <value> — named families, or an explicit OpenAI id (gpt-5.6, gpt-5.5,
+# gpt-5.4, gpt-5.5-codex, ...) which passes through under the codex harness
+is_model() {
+  valid_in "$1" "$VALID_MODELS" && return 0
+  case "$1" in gpt-[0-9]*) return 0 ;; esac
+  return 1
+}
+
+# usable_here <model> — is this model dispatchable under the ACTIVE harness?
+usable_here() {
+  if [ "$HARNESS" = "codex" ]; then
+    valid_in "$1" "$CODEX_MODELS inherit" && return 0
+    case "$1" in gpt-[0-9]*) return 0 ;; esac
+    return 1
+  else
+    valid_in "$1" "$CLAUDE_MODELS inherit"
+  fi
+}
+
 [ -f "$DEFAULTS" ] || { echo "routing.sh: defaults not found at $DEFAULTS" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "routing.sh: python3 is required (used to parse config JSON) but not on PATH" >&2; exit 1; }
+
+# Active harness: "claude" (default) or "codex" — decides the model family.
+HARNESS="$(python3 -c "
+import json,sys
+try: print(json.load(open('$PROJECT_CONFIG')).get('harness','claude'))
+except Exception: print('claude')" 2>/dev/null || echo claude)"
+case "$HARNESS" in claude|codex) ;; *) echo "routing.sh: WARNING: unknown harness '$HARNESS' — using claude" >&2; HARNESS=claude ;; esac
 
 # Validate the project config ONCE: a malformed file warns loudly (single line)
 # and is then ignored — silent fallback would hide that overrides stopped applying.
@@ -52,7 +90,7 @@ resolve() { # resolve <role> -> prints "model effort source"
     pm="$(json_get "$PROJECT_CONFIG" "$role" model)"
     pe="$(json_get "$PROJECT_CONFIG" "$role" effort)"
     if [ -n "$pm" ]; then
-      if valid_in "$pm" "$VALID_MODELS"; then model="$pm"; source="project"
+      if is_model "$pm"; then model="$pm"; source="project"
       else echo "routing.sh: invalid model '$pm' for role '$role' in project config; using default" >&2; fi
     fi
     if [ -n "$pe" ]; then
@@ -60,11 +98,23 @@ resolve() { # resolve <role> -> prints "model effort source"
       else echo "routing.sh: invalid effort '$pe' for role '$role' in project config; using default" >&2; fi
     fi
   fi
-  echo "$model $effort $source"
+  # map into the active harness's family (fable/opus<->sol, sonnet<->terra, haiku<->luna);
+  # explicit gpt-* ids pass through under codex, fall back to role default under claude
+  local final
+  final="$(translate "$model" "$HARNESS")"
+  [ "$final" != "$model" ] && source="$source(translated)"
+  if ! usable_here "$final"; then
+    local fallback
+    fallback="$(translate "$(json_get "$DEFAULTS" "$role" model)" "$HARNESS")"
+    echo "routing.sh: model '$final' is not usable under harness '$HARNESS' — falling back to '$fallback' for role '$role'" >&2
+    final="$fallback"; source="default(harness-fallback)"
+  fi
+  echo "$final $effort $source"
 }
 
 case "${1:-}" in
   --dump)
+    echo "harness: $HARNESS"
     printf "%-16s %-8s %-8s %s\n" "ROLE" "MODEL" "EFFORT" "SOURCE"
     for role in $ROLES; do
       read -r m e s <<<"$(resolve "$role")"

@@ -21,8 +21,11 @@ else. You are the ONLY sanctioned writer of this file.
 2. **Parse one-shot arguments if given.** Accept `role=model/effort` pairs,
    e.g. `/smithy:calibrate review=sonnet/medium testing=haiku/low`. Validate:
    roles ∈ {research, planning, implementation, review, debugging, testing,
-   mechanical}, model ∈ {fable, opus, sonnet, haiku, inherit}, effort ∈ {low, medium,
-   high, max}. Invalid input → show what's wrong, don't write anything.
+   mechanical}, model ∈ {fable, opus, sonnet, haiku, sol, terra, luna, inherit} or an
+   explicit `gpt-*` id (older generations — codex harness only), effort ∈
+   {low, medium, high, max}. Also accepts `harness=claude|codex` (see
+   `${CLAUDE_PLUGIN_ROOT}/references/harness.md` — models auto-translate
+   between families). Invalid input → show what's wrong, don't write anything.
    If valid, skip to step 5.
 
 3. **Ask what to change.** Use AskUserQuestion (multiSelect): which roles to
@@ -30,9 +33,13 @@ else. You are the ONLY sanctioned writer of this file.
    the user came with a natural-language request ("use opus for review",
    "always TDD"), map it directly and confirm instead of re-asking.
 
-4. **Per selected item, ask the new value.** One AskUserQuestion per role with
-   model options (fable / opus / sonnet / haiku / inherit — fable is the Mythos-class tier above opus; every model choice is probed in step 5 before it is written) and effort options (low /
-   medium / high / max); mark the current value. For "gates":
+4. **Per selected item, ask the new value.** One AskUserQuestion per role.
+   Model options depend on the harness (`routing.sh --dump` header):
+   claude → fable / opus / sonnet / haiku / inherit (fable = Mythos-class,
+   above opus); codex → sol / terra / luna / inherit, or an explicit older
+   id (gpt-5.5, gpt-5.4, …). Every model choice is probed in step 5 before
+   it is written. Effort options (low / medium / high / max); mark the
+   current value. Extra item "harness": claude | codex. For "gates":
    `pause_between_phases` and `auto_fix_review_findings` (true/false). For
    "testing": `skip` subset of [ring-test, wield, proof, hone]. For
    "implementation": `tdd` ∈ {ask, always, never} — controls whether forge
@@ -46,13 +53,15 @@ else. You are the ONLY sanctioned writer of this file.
    access to usage-credit access) — a config pointing at an unavailable
    model breaks every dispatch for that role. For EACH model value being
    newly set (once per distinct model, `inherit` exempt):
-   - Dispatch a minimal probe: Agent tool, `model` = the candidate, prompt
-     exactly: "Effort: LOW. Reply with the single word: ok". No files, no
-     tools needed.
+   - Dispatch a minimal probe with `model` = the candidate and the prompt:
+     "Effort: LOW. Reply with the single word: ok" — Agent tool under Claude
+     Code; `spawn_agent`/`wait_agent`/`close_agent` under Codex (see
+     `${CLAUDE_PLUGIN_ROOT}/references/harness.md`).
    - Probe returns → model is available; proceed.
    - Dispatch errors/rejects → do NOT write that role's change. Tell the
      user which model failed the probe and keep the current value; suggest
-     the nearest available tier (fable→opus, opus→sonnet).
+     the nearest available tier (fable→opus, opus→sonnet; sol→terra,
+     terra→luna; older gpt-* → the named trio).
    Never skip the probe on the assumption a model "should" be available —
    that is exactly the assumption this step exists to kill.
 

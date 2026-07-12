@@ -20,6 +20,22 @@ Or from a local clone:
 
 Restart the session (or `/plugin` → enable) and you're set — the SessionStart hook announces smithy and its routing rules in every new session.
 
+### Codex CLI / Codex App (GPT-5.6)
+
+Smithy runs under OpenAI's Codex too. Two ways in:
+
+**Via the Codex plugin marketplace** (once listed — the repo ships marketplace-ready):
+
+```
+/plugins        # in Codex — search "smithy", Install Plugin
+```
+
+Codex plugins install from the [official marketplace](https://github.com/openai/plugins); listing requires a submission PR. This repo is packaged for it: `.codex-plugin/plugin.json` (interface manifest), skills surfaced natively, and `scripts/sync-to-codex-plugin.sh` stages the exact plugin tree and opens the submission PR from your fork (`--stage-only` to inspect the tree locally first).
+
+**Manual (works today):** clone the repo — Codex picks up `AGENTS.md` (the harness entrypoint) automatically.
+
+Either way: enable subagents (`~/.codex/config.toml` → `[features] multi_agent = true`) and set the harness once per project — `"harness": "codex"` in `docs/smithy/config.json` (or via the calibrate skill). Model routing translates automatically: flagship roles get `sol`, workhorse roles `terra`, mechanical `luna`; older generations (`gpt-5.5`, `gpt-5.4`, …) can be set per role as explicit ids. Full adaptation rules (dispatch mapping, what degrades — notably: plugin hooks don't run there, so the git guard is prompt-level) live in `references/harness.md`. **Status: structurally faithful to the proven superpowers adapter — not yet live-tested under Codex, and not yet submitted to the marketplace (smithy is under active development; the sync script runs when it's time).**
+
 ## Usage
 
 ### The one command

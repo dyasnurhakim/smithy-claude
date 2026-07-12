@@ -30,10 +30,12 @@ names the file(s); the agent adapts per its mode.
 
 - Pass `model` as the Agent tool's per-dispatch `model` parameter. It overrides
   the agent's frontmatter default. If `model=inherit`, omit the parameter.
-- Model tiers, cheapest to most capable: `haiku` < `sonnet` < `opus` < `fable`
-  (Claude 5, Mythos-class). Fable availability depends on the account — if a
-  fable dispatch is rejected, tell the user and fall back to opus for that
-  dispatch; suggest `/smithy:calibrate` to change the route.
+- Model tiers, cheapest to most capable — Claude Code: `haiku` < `sonnet` <
+  `opus` < `fable`; Codex (GPT-5.6): `luna` < `terra` < `sol`, plus explicit
+  older ids (`gpt-5.5`, `gpt-5.4`, …). routing.sh translates between the
+  families per `${CLAUDE_PLUGIN_ROOT}/references/harness.md`. Availability
+  depends on the account — if a dispatch is rejected, tell the user, fall
+  back one tier, and suggest `/smithy:calibrate`.
 - `effort` is NOT a dispatch parameter. Prepend the matching banner to the
   subagent prompt:
 

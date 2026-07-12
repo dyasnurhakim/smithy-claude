@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.10.0 — unreleased
+
+Codex CLI harness support (GPT-5.6 sol/terra/luna + older generations).
+
+- **Harness-aware model routing**: `"harness": "claude" | "codex"` in
+  config; routing.sh translates tiers both ways (fable/opus↔sol,
+  sonnet↔terra, haiku↔luna) so one config works on both harnesses;
+  explicit older ids (gpt-5.5, gpt-5.4, gpt-5.5-codex, …) pass through
+  under codex and fall back to the role default under claude;
+  --dump shows the harness and marks translations
+- **references/harness.md**: dispatch mapping (Agent tool ↔
+  spawn_agent/wait_agent/close_agent with multi_agent=true), per-dispatch
+  model caveats, sandbox/detached-HEAD detection, and the honest
+  degradation list — hooks don't run under Codex, so the git/destructive
+  guard is prompt-level there (creed §6 + manual `guard.sh check`)
+- **CLAUDE.md + AGENTS.md symlink** (harness entrypoint) and
+  **.codex-plugin/plugin.json** (interface manifest mirroring the proven
+  superpowers adapter shape)
+- calibrate: harness item; probe adapted per harness; model options per
+  family; using-smithy rule 8
+- tests/routing-matrix.sh: 15 cases (translation both ways, gpt-*
+  passthrough, harness fallback, invalid rejection)
+- **Marketplace packaging**: scripts/sync-to-codex-plugin.sh stages the
+  canonical Codex plugin tree (skills + agents + references + defaults +
+  functional scripts; drops hooks/commands/tests/repo ceremony) with
+  --stage-only for local inspection, or clones your fork of openai/plugins,
+  syncs plugins/smithy/, and opens the submission PR; README documents both
+  install paths (/plugins marketplace once listed; AGENTS.md clone today)
+- Flag: the Codex port is structurally faithful but not yet live-tested
+  under a Codex session
+
 ## 0.9.0 — unreleased
 
 - **Personas for every subagent** (`references/persona-modes.md`): four

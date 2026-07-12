@@ -1,0 +1,43 @@
+{
+  "name": "smithy",
+  "version": "0.10.0",
+  "description": "Full dev pipeline: research, planning, TDD implementation, persona review panels, root-cause debugging, and QA/stress/perf testing — never assumes, asks or recommends.",
+  "author": {
+    "name": "Dyas Nuhakim S",
+    "email": "dyassudiana@gmail.com",
+    "url": "https://github.com/dyasnurhakim"
+  },
+  "homepage": "https://github.com/dyasnurhakim/smithy-claude",
+  "repository": "https://github.com/dyasnurhakim/smithy-claude",
+  "license": "MIT",
+  "keywords": [
+    "pipeline",
+    "planning",
+    "tdd",
+    "code-review",
+    "testing",
+    "debugging",
+    "personas",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "Smithy",
+    "shortDescription": "Blacksmith-themed dev pipeline: assay, blueprint, forge, inspect, anneal, temper",
+    "longDescription": "Use Smithy to take work from idea to tested code: research (assay), verify-annotated planning (blueprint), implementation with per-task review and optional TDD (forge/jig), multi-persona production-readiness panels (guild), root-cause debugging (anneal), and a full testing family (temper: unit/QA/stress/perf) — with per-project memory that survives session death and model routing per pipeline role (GPT-5.6 sol/terra/luna under Codex, Claude models under Claude Code).",
+    "developerName": "Dyas Nuhakim S",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Take this feature from idea to tested code.",
+      "Fix these review findings.",
+      "Is this ready for production?"
+    ],
+    "websiteURL": "https://github.com/dyasnurhakim/smithy-claude"
+  }
+}

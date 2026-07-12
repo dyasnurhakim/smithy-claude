@@ -72,6 +72,12 @@ slash command: `/smithy:plan` invokes `smithy:blueprint`, etc.
    If a tool is NOT in the user's configuration, do not reach for it.
    Smithy never assumes an ecosystem it wasn't told about.
 
+8. **Two harnesses, one protocol.** Under Codex CLI (AGENTS.md entrypoint)
+   read `${CLAUDE_PLUGIN_ROOT}/references/harness.md` first: dispatch maps
+   to spawn_agent/wait_agent/close_agent, models to the GPT family
+   (sol/terra/luna + explicit older gpt-* ids), and — critically — the
+   guard hook does NOT run there, so creed §6 is the enforcement.
+
 ## Red flags — these thoughts mean STOP
 
 | Thought | Reality |
