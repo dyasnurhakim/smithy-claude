@@ -1,4 +1,0 @@
-plan this now : 
-- make a persona for each agent, each persona is a capable in each role. for the code reviewer make several persona that will fire up parallel subagent with different persona, let says senior engineer, senior QA, senior UI/UX, etc that makes it ready for production with best security and stability 
-- add guard rile for auto commit and push for git, destructive command and honor the user claude.md global rules if exists
-- make a standard format for all of the agent so it can communicate without losing any valuable key information 
