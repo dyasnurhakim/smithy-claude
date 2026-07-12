@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 — unreleased
+
+- **`strike` skill (alias `/smithy:fix`)** — one-shot fix lane for small
+  KNOWN changes (≤5 items, no spec): lightweight inline plan → ONE
+  confirmation gate (doubles as the commit grant) → plain forger per item
+  with TDD explicitly overridden → targeted tests (verify commands +
+  covering suites, revert on persistent failure) → one whole-diff inspect →
+  single strike-report.md. A thin profile over the forge machinery: same
+  dispatch protocol, forger agent, guard, and envelope — skips the ceremony
+  (spec, decomposition, persona pass, per-task review), never the subagent
+  rules. Unknown-cause items route to anneal; >5 items route to blueprint.
+
 ## 0.7.0 — unreleased
 
 Token efficiency (typical pipeline run ~30–45% lighter; every session ~2k

@@ -108,6 +108,7 @@ Everything the run produced lives in your repo under `docs/smithy/` — spec, pl
 | `/smithy:commission` | `personas` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
 | `/smithy:pattern` | `design` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `docs/smithy/DESIGN.md`, the design source of truth |
 | `/smithy:burnish` | `design-review` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
+| `/smithy:strike` | `fix` | **One-shot fixes** — small known changes: lightweight plan → one confirmation → forge (no TDD) → targeted tests → one report |
 | `/smithy:anneal` | `debug` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
 | `/smithy:temper` | `test` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
 | `/smithy:ring-test` | `unit-test` | **Unit tests** (ring test = tapping metal to hear flaws) |

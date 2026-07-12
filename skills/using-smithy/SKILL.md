@@ -34,6 +34,7 @@ slash command: `/smithy:plan` invokes `smithy:blueprint`, etc.
 | "Who uses this system?" / define test personas | `/smithy:commission` (`personas`) |
 | "Create a design" / design system (before UI work) | `/smithy:pattern` (`design`) |
 | "Review/improve the design" / "polish the UI" | `/smithy:burnish` (`design-review`) |
+| Small KNOWN fixes, review/QA finding fixups, quick change | `/smithy:strike` (`fix`) |
 | A bug, unexpected failure, "why is this broken" | `/smithy:anneal` (`debug`) |
 | "Test everything" after implementation | `/smithy:temper` (`test`) |
 | Unit tests only | `/smithy:ring-test` (`unit-test`) |

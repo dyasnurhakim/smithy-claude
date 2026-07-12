@@ -11,7 +11,7 @@ STATE="$ROOT/docs/smithy/STATE.md"
   cat <<'DIGEST'
 <smithy-digest>
 Smithy (full dev pipeline) is installed. Routing (invoke the smithy:using-smithy skill for the full router + red-flags):
-  build end-to-end→smithy | research/spec→assay | plan→blueprint | implement→forge | TDD/bugfix→jig | review diff→inspect | ship-ready panel→guild | test personas→commission | design→pattern | design review→burnish | debug/RCA→anneal | test all→temper | unit→ring-test | QA→wield | load→proof | perf→hone | session end→handover | model routing→calibrate
+  build end-to-end→smithy | research/spec→assay | plan→blueprint | implement→forge | TDD/bugfix→jig | review diff→inspect | ship-ready panel→guild | test personas→commission | design→pattern | design review→burnish | quick known fix→strike | debug/RCA→anneal | test all→temper | unit→ring-test | QA→wield | load→proof | perf→hone | session end→handover | model routing→calibrate
 Iron rules:
   1. Process first: "build X" enters at assay/smithy, never directly at forge — even when it seems clear.
   2. RCA before fix (anneal); ledger + git log outrank recollection; evidence before assertion.
