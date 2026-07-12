@@ -101,6 +101,15 @@ Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
   and backfill tests.
 - **BLOCKED** — environment/permission/contradiction prevents work.
 
+## Persona overlay
+
+If the brief has a `## Persona` section, read the named persona file(s)
+BEFORE the TDD loop and adopt them as BUILD CONSTRAINTS per
+`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md` — and let them seed
+RED cases (a security persona's hunt list is a list of failing tests to
+write). Ignore the persona's "Output" section; your report format is
+unchanged.
+
 ## Never
 
 - Never write implementation before its failing test. If you catch yourself

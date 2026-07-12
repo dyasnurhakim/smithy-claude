@@ -127,7 +127,11 @@ process, not deciding silently.
    `docs/smithy/DESIGN.md` exists, it goes in the context files** (the
    design source of truth from `/smithy:pattern`); if it doesn't and the
    job is UI-heavy, recommend running `/smithy:pattern` before forging. Requirements are numbered and
-   testable. The brief must be self-contained: an agent with ONLY that brief
+   testable. **Tag each brief's `## Persona` section** per the mapping in
+   `${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md`: masters/engineer.md
+   always, + at most ONE domain specialist (security for auth/input/data,
+   uiux or designer for UI, sre for service/config/infra).
+   The brief must be self-contained: an agent with ONLY that brief
    + the listed context files can complete the task without seeing the spec,
    the plan, or this conversation.
 

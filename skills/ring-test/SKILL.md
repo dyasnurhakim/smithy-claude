@@ -28,6 +28,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> ring-tes
    invocation from the playbook, report path `reports/test-unit.md`.
    Requirements include: one behavior per test, AAA structure, descriptive
    names, no snapshot-everything, do not touch production source.
+   `## Persona`: masters/qa.md (test lens per persona-modes.md).
 
 4. **Dispatch `smithy:temperer`** (routing role `testing`; effort banner; paths only).
 

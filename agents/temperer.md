@@ -69,6 +69,16 @@ Every finding and every claimed pass MUST carry proof:
 - What you couldn't capture proof for is `cannot-verify`, not a pass and
   not a finding.
 
+## Persona overlay
+
+If the brief has a `## Persona` section, read the named persona file(s)
+and adopt them as a TEST LENS per
+`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md`: each hunt item is
+something to prove absent; the persona's stakes price your findings.
+Project personas define flows + permission boundaries (a CANNOT that
+succeeds is Critical). Ignore the persona's "Output" section; your report
+format is unchanged.
+
 ## Never
 
 - Never modify production source. Test files, fixtures, and test configs only.

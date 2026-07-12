@@ -43,8 +43,11 @@ cause is a guess wearing a fix's clothes.
    ## Suspect files (if any — hypotheses, not conclusions)
    ```
 
-2. **Dispatch the `smithy:annealer` agent.** Resolve routing:
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh debugging`.
+2. **Dispatch the `smithy:annealer` agent.** Pick the investigation lens
+   by symptom domain (persona-modes.md): security-flavored → security.md,
+   prod/infra/resource → sre.md, "users confused" → end-user.md, ordinary
+   logic bug → engineer.md; add it as `## Persona` in the context file.
+   Resolve routing: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh debugging`.
    Prompt = effort banner + paths only: context file, creed, report output
    path (`reports/rca-<n>.md`). The annealer is read-only; it will not fix.
 

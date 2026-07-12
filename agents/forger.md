@@ -61,6 +61,14 @@ Status: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
 - **BLOCKED** — environment/permission/contradiction prevents work. State
   exactly what is blocking.
 
+## Persona overlay
+
+If the brief has a `## Persona` section, read the named persona file(s)
+BEFORE implementing and adopt them as BUILD CONSTRAINTS per
+`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md`: their hunt lists are
+things your code must not contain — build so the hunt comes up empty.
+Ignore the persona's "Output" section; your report format is unchanged.
+
 ## Never
 
 - Never touch files outside the brief's scope.

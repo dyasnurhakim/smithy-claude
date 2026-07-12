@@ -32,7 +32,9 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> proof ST
    discipline (release builds, JVM warm-up) and the runtime monitoring hooks
    (pprof, jcmd/JFR, RSS/fd tracking).
 
-2. **Write the test brief** (`briefs/proof.md`): tool + exact invocations for
+2. **Write the test brief** (`briefs/proof.md`): `## Persona`:
+   masters/sre.md (test lens — failure modes + monitoring hooks); tool +
+   exact invocations for
    four phases — warm-up (low load, 10s), ramp (step to target), sustained
    (target load, the agreed duration), spike (2× target, 15s) — endpoints,
    thresholds table, report path `reports/test-stress.md`. Include the run

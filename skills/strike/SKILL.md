@@ -53,7 +53,8 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> strike ST
 3. **Forge — plain forger, NO TDD.** This lane overrides
    `implementation.tdd` (that's its point — say so if config says always).
    Per item, in order: write a minimal brief (dispatch.md template;
-   requirements = that item only), dispatch `smithy:forger` exactly as
+   requirements = that item only; `## Persona` per persona-modes.md —
+   engineer default + at most one domain specialist), dispatch `smithy:forger` exactly as
    forge's per-task loop does (routing role `implementation`, effort
    banner, paths-only prompt), one commit per item (`fix: <item>` /
    `chore:`/`docs:` as fits). Statuses per dispatch.md — NEEDS_CONTEXT

@@ -22,6 +22,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh <role>
 
 Roles: `research planning implementation review debugging testing mechanical`.
 
+Persona overlays: every agent type can carry one (see
+`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md` — builders get
+engineer + at most one domain specialist; tester suite-matched; annealer
+symptom-matched; inspector contextual). The brief's `## Persona` section
+names the file(s); the agent adapts per its mode.
+
 - Pass `model` as the Agent tool's per-dispatch `model` parameter. It overrides
   the agent's frontmatter default. If `model=inherit`, omit the parameter.
 - Model tiers, cheapest to most capable: `haiku` < `sonnet` < `opus` < `fable`
@@ -77,6 +83,8 @@ concerns: []
 - `<command>` → expected: <output/behavior>
 ## Commit message
 <type>: <description>
+## Persona (optional — selection per ${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md)
+- <persona file path(s), max per the mode table — e.g. masters/engineer.md + masters/security.md>
 ## Report
 Write your report to: docs/smithy/jobs/<slug>/reports/task-N-impl.md
 Open it with a smithy envelope (kind: impl-report) per your agent

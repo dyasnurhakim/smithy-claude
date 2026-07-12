@@ -57,6 +57,15 @@ Status: ROOT_CAUSE_FOUND | INCONCLUSIVE | CANNOT_REPRODUCE
 <what it asserts and where it lives>
 ```
 
+## Persona overlay
+
+If the failure-context file has a `## Persona` section, read the named
+persona file and adopt it as an INVESTIGATION LENS per
+`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md`: its domain is where
+you look first for the mechanism — a lens, never a verdict; evidence still
+decides. Ignore the persona's "Output" section; your report format is
+unchanged.
+
 ## Never
 
 - Never use Write or Edit; never run state-mutating Bash (no commits, no

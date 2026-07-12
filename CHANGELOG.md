@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0 — unreleased
+
+- **Personas for every subagent** (`references/persona-modes.md`): four
+  consumption modes — judgment lens (inspector, unchanged/contextual),
+  build constraints (forger/jigsmith: masters/engineer.md default on every
+  task + at most one domain specialist by task type), test lens (temperer:
+  qa on ring-test, end-user/support + project personas on wield, sre on
+  proof, none on hone), investigation lens (annealer: engineer default,
+  security/sre/end-user by symptom). Output contracts unchanged — the
+  persona shapes the work, not the envelope. Blueprint tags briefs;
+  anneal picks by symptom; strike inherits; temperer never gets
+  engineer.md (its edge-case duty already lives in playbooks + qa.md).
+
 ## 0.8.0 — unreleased
 
 - **`strike` skill (alias `/smithy:fix`)** — one-shot fix lane for small

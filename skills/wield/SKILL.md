@@ -40,7 +40,9 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    - The report groups findings by persona; the health score stays global.
 
 4. **Write the test brief** (`briefs/wield.md`): playbook path, flows, tier,
-   persona file paths when in persona mode, report path `reports/test-qa.md`,
+   `## Persona`: patrons/end-user.md + project personas (persona mode) +
+   patrons/support.md when error-path flows are in scope (persona-modes.md,
+   cap 2 + project), report path `reports/test-qa.md`,
    and — for any browser/UI target — the MANDATORY evidence dir
    `docs/smithy/jobs/<slug>/reports/qa-evidence/`. The brief states the
    evidence contract explicitly: one screenshot per flow at its assertion
