@@ -1,13 +1,22 @@
 {
+  "//": "Plugin defaults — the lowest config layer. NEVER edit per project.",
+  "//1": "Override globally with $SMITHY_HOME/config.json (all projects) or",
+  "//2": "per project with <memory-dir>/config.json. Both via /smithy:calibrate.",
+  "//3": "Routing models are TIER names (flagship/workhorse/fast) so a new model",
+  "//4": "release never requires editing this file — defaults/models.json maps each",
+  "//5": "tier to the current model per harness. Concrete names still work here.",
+  "//6": "`memory.location` is GLOBAL-ONLY (a project config cannot say where the",
+  "//7": "project config lives) — set it in $SMITHY_HOME/config.json; unset = ask.",
+
   "smithy_config_version": 1,
   "routing": {
-    "research":       { "model": "sonnet", "effort": "medium" },
-    "planning":       { "model": "opus",   "effort": "high"   },
-    "implementation": { "model": "sonnet", "effort": "medium" },
-    "review":         { "model": "opus",   "effort": "high"   },
-    "debugging":      { "model": "opus",   "effort": "high"   },
-    "testing":        { "model": "sonnet", "effort": "medium" },
-    "mechanical":     { "model": "haiku",  "effort": "low"    }
+    "research":       { "model": "workhorse", "effort": "medium" },
+    "planning":       { "model": "flagship",  "effort": "high"   },
+    "implementation": { "model": "workhorse", "effort": "medium" },
+    "review":         { "model": "flagship",  "effort": "high"   },
+    "debugging":      { "model": "flagship",  "effort": "high"   },
+    "testing":        { "model": "workhorse", "effort": "medium" },
+    "mechanical":     { "model": "fast",      "effort": "low"    }
   },
   "gates": {
     "pause_between_phases": true,
@@ -20,5 +29,6 @@
   "testing": {
     "stack": "auto",
     "skip": []
-  }
+  },
+  "review_diff_context": 5
 }

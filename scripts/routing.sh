@@ -4,129 +4,61 @@
 # Usage:
 #   routing.sh <role>     -> "model=sonnet effort=medium"
 #   routing.sh --dump     -> effective table, one role per line, with source column
+#   routing.sh --models   -> what this harness accepts as a model value
+#   routing.sh --roles    -> the role list
 #
-# Precedence: <project>/docs/smithy/config.json overrides <plugin>/defaults/config.json
-# per role key. Invalid values warn to stderr and fall back to defaults.
-set -euo pipefail
+# Precedence, lowest first: plugin defaults -> $SMITHY_HOME/config.json (global,
+# all projects) -> <memory-dir>/config.json (this project). The memory dir is
+# resolved by paths.sh, so it need NOT be inside the repo.
+#
+# Model values may be a tier (flagship/workhorse/fast), a family name
+# (opus/sonnet/haiku/fable, sol/terra/luna), `inherit`, or any id matching the
+# harness's id_patterns in defaults/models.json — which is why a new model
+# release needs no change here. Cross-family values translate BY TIER.
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULTS="$SCRIPT_DIR/../defaults/config.json"
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-PROJECT_CONFIG="$PROJECT_ROOT/docs/smithy/config.json"
+# shellcheck source=./paths.sh
+. "$SCRIPT_DIR/paths.sh"
+export SMITHY_DEFAULTS SMITHY_GLOBAL_CONFIG SMITHY_PROJECT_CONFIG SMITHY_MODELS SMITHY_GLOBAL_MODELS
 
-CLAUDE_MODELS="fable opus sonnet haiku"
-CODEX_MODELS="sol terra luna"
-VALID_MODELS="$CLAUDE_MODELS $CODEX_MODELS inherit"   # configs may use either family
-VALID_EFFORTS="low medium high max"
-ROLES="research planning implementation review debugging testing mechanical"
-
-# translate <model> <harness> — map a model into the active harness's family
-translate() {
-  local m="$1" h="$2"
-  if [ "$h" = "codex" ]; then
-    case "$m" in fable|opus) echo sol ;; sonnet) echo terra ;; haiku) echo luna ;; *) echo "$m" ;; esac
-  else
-    case "$m" in sol) echo opus ;; terra) echo sonnet ;; luna) echo haiku ;; *) echo "$m" ;; esac
-  fi
-}
-
-# is_model <value> — named families, or an explicit OpenAI id (gpt-5.6, gpt-5.5,
-# gpt-5.4, gpt-5.5-codex, ...) which passes through under the codex harness
-is_model() {
-  valid_in "$1" "$VALID_MODELS" && return 0
-  case "$1" in gpt-[0-9]*) return 0 ;; esac
-  return 1
-}
-
-# usable_here <model> — is this model dispatchable under the ACTIVE harness?
-usable_here() {
-  if [ "$HARNESS" = "codex" ]; then
-    valid_in "$1" "$CODEX_MODELS inherit" && return 0
-    case "$1" in gpt-[0-9]*) return 0 ;; esac
-    return 1
-  else
-    valid_in "$1" "$CLAUDE_MODELS inherit"
-  fi
-}
-
-[ -f "$DEFAULTS" ] || { echo "routing.sh: defaults not found at $DEFAULTS" >&2; exit 1; }
+LIB="$SCRIPT_DIR/lib/smithy_config.py"
+[ -f "$SMITHY_DEFAULTS" ] || { echo "routing.sh: defaults not found at $SMITHY_DEFAULTS" >&2; exit 1; }
+[ -f "$LIB" ] || { echo "routing.sh: helper not found at $LIB" >&2; exit 1; }
 command -v python3 >/dev/null 2>&1 || { echo "routing.sh: python3 is required (used to parse config JSON) but not on PATH" >&2; exit 1; }
 
-# Active harness: "claude" (default) or "codex" — decides the model family.
-HARNESS="$(python3 -c "
-import json,sys
-try: print(json.load(open('$PROJECT_CONFIG')).get('harness','claude'))
-except Exception: print('claude')" 2>/dev/null || echo claude)"
-case "$HARNESS" in claude|codex) ;; *) echo "routing.sh: WARNING: unknown harness '$HARNESS' — using claude" >&2; HARNESS=claude ;; esac
-
-# Validate the project config ONCE: a malformed file warns loudly (single line)
-# and is then ignored — silent fallback would hide that overrides stopped applying.
-if [ -f "$PROJECT_CONFIG" ] && ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$PROJECT_CONFIG" 2>/dev/null; then
-  echo "routing.sh: WARNING: $PROJECT_CONFIG is not valid JSON — ALL project overrides ignored; using defaults" >&2
-  PROJECT_CONFIG=""
-fi
-
-json_get() { # json_get <file> <role> <field> — missing keys are silent (expected for sparse configs)
-  python3 - "$1" "$2" "$3" <<'PY'
-import json, sys
-try:
-    cfg = json.load(open(sys.argv[1]))
-    print(cfg.get("routing", {}).get(sys.argv[2], {}).get(sys.argv[3], ""))
-except Exception:
-    print("")
-PY
-}
-
-valid_in() { # valid_in <value> <space-separated-set>
-  case " $2 " in *" $1 "*) return 0 ;; *) return 1 ;; esac
-}
-
-resolve() { # resolve <role> -> prints "model effort source"
-  local role="$1" model effort source="default"
-  model="$(json_get "$DEFAULTS" "$role" model)"
-  effort="$(json_get "$DEFAULTS" "$role" effort)"
-  if [ -f "$PROJECT_CONFIG" ]; then
-    local pm pe
-    pm="$(json_get "$PROJECT_CONFIG" "$role" model)"
-    pe="$(json_get "$PROJECT_CONFIG" "$role" effort)"
-    if [ -n "$pm" ]; then
-      if is_model "$pm"; then model="$pm"; source="project"
-      else echo "routing.sh: invalid model '$pm' for role '$role' in project config; using default" >&2; fi
-    fi
-    if [ -n "$pe" ]; then
-      if valid_in "$pe" "$VALID_EFFORTS"; then effort="$pe"; source="project"
-      else echo "routing.sh: invalid effort '$pe' for role '$role' in project config; using default" >&2; fi
-    fi
-  fi
-  # map into the active harness's family (fable/opus<->sol, sonnet<->terra, haiku<->luna);
-  # explicit gpt-* ids pass through under codex, fall back to role default under claude
-  local final
-  final="$(translate "$model" "$HARNESS")"
-  [ "$final" != "$model" ] && source="$source(translated)"
-  if ! usable_here "$final"; then
-    local fallback
-    fallback="$(translate "$(json_get "$DEFAULTS" "$role" model)" "$HARNESS")"
-    echo "routing.sh: model '$final' is not usable under harness '$HARNESS' — falling back to '$fallback' for role '$role'" >&2
-    final="$fallback"; source="default(harness-fallback)"
-  fi
-  echo "$final $effort $source"
-}
+cfg() { python3 "$LIB" "$@"; }
 
 case "${1:-}" in
   --dump)
-    echo "harness: $HARNESS"
-    printf "%-16s %-8s %-8s %s\n" "ROLE" "MODEL" "EFFORT" "SOURCE"
-    for role in $ROLES; do
-      read -r m e s <<<"$(resolve "$role")"
-      printf "%-16s %-8s %-8s %s\n" "$role" "$m" "$e" "$s"
+    echo "harness: $(cfg harness)"
+    echo "memory:  $SMITHY_MEM  ($SMITHY_MEM_SOURCE)"
+    printf "%-16s %-14s %-8s %s\n" "ROLE" "MODEL" "EFFORT" "SOURCE"
+    cfg routing | while IFS=$'\t' read -r role model effort source; do
+      printf "%-16s %-14s %-8s %s\n" "$role" "$model" "$effort" "$source"
+    done
+    echo
+    cfg layers | while IFS=$'\t' read -r layer path exists; do
+      printf "config layer %-9s %-4s %s\n" "$layer" "$exists" "$path"
     done
     ;;
+  --models)
+    echo "harness: $(cfg harness)"
+    printf "%-24s %-10s %s\n" "VALUE" "TIER" "KIND"
+    cfg models | while IFS=$'\t' read -r name tier kind; do
+      printf "%-24s %-10s %s\n" "$name" "$tier" "$kind"
+    done
+    echo "efforts: $(cfg efforts)"
+    ;;
+  --roles)
+    cfg roles ;;
   "")
-    echo "usage: routing.sh <role>|--dump  (roles: $ROLES)" >&2; exit 2 ;;
+    echo "usage: routing.sh <role>|--dump|--models|--roles  (roles: $(cfg roles))" >&2; exit 2 ;;
+  -*)
+    echo "routing.sh: unknown flag '$1' (try --dump)" >&2; exit 2 ;;
   *)
-    role="$1"
-    valid_in "$role" "$ROLES" || { echo "routing.sh: unknown role '$role' (roles: $ROLES)" >&2; exit 2; }
-    read -r m e _ <<<"$(resolve "$role")"
-    echo "model=$m effort=$e"
+    row="$(cfg routing "$1")" || exit 2
+    IFS=$'\t' read -r _role model effort _source <<<"$row"
+    echo "model=$model effort=$effort"
     ;;
 esac

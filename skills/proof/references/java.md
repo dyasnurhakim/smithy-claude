@@ -22,7 +22,7 @@ never install load tools into the user's project.
 - Thread counts: `jcmd <pid> Thread.print | grep -c '^"'` at the same three
   points — unbounded thread-pool growth is a leak-class finding.
 - If Flight Recorder is available: `jcmd <pid> JFR.start duration=60s
-  filename=docs/smithy/jobs/<slug>/reports/perf/proof.jfr` during the
+  filename=$SMITHY_MEM/jobs/<slug>/reports/perf/proof.jfr` during the
   sustained phase; attach the file path to the report.
 - After the recovery run, heap and threads should return near baseline;
   a ratcheted floor = leak finding.

@@ -24,7 +24,7 @@ Resolve your own effort: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh planning
 
 ## Preconditions
 
-`docs/smithy/jobs/<slug>/spec.md` must exist with an empty "Open questions"
+`$SMITHY_MEM/jobs/<slug>/spec.md` must exist with an empty "Open questions"
 section. If missing, offer to run `/smithy:assay` first — do not plan from a
 verbal description. If open questions remain, resolve them (with the user)
 before planning. The plan may not contain anything the spec doesn't cover;
@@ -62,7 +62,7 @@ process, not deciding silently.
    from `${CLAUDE_PLUGIN_ROOT}/references/personas/` (security for anything
    with auth/input/data; sre for services/config; qa always; designer +
    end-user for UI; support for error-heavy features; plus project personas
-   from `docs/smithy/personas/`). Read each file and produce a STRUCTURED
+   from `$SMITHY_MEM/personas/`). Read each file and produce a STRUCTURED
    assessment — per persona × per task, not vague vibes:
 
    | Persona | Task | Finding | Type | Proposed change |
@@ -102,7 +102,7 @@ process, not deciding silently.
    doubt, don't mark it: a false parallel marker costs a merge conflict and
    a batch restart; a false sequential marker costs only time.
 
-5. **Write `docs/smithy/jobs/<slug>/plan.md`:**
+5. **Write `$SMITHY_MEM/jobs/<slug>/plan.md`:**
 
    ```markdown
    # Plan — <title>
@@ -119,12 +119,12 @@ process, not deciding silently.
    <how to back out: branch/revert strategy>
    ```
 
-6. **Write one brief per task** at `docs/smithy/jobs/<slug>/briefs/task-N.md`
+6. **Write one brief per task** at `$SMITHY_MEM/jobs/<slug>/briefs/task-N.md`
    using EXACTLY the brief template from
    `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` — including the Report
    section's Status-line contract. Context files list ONLY what that task
    needs (the agent reads nothing else). **UI tasks: if
-   `docs/smithy/DESIGN.md` exists, it goes in the context files** (the
+   `$SMITHY_MEM/DESIGN.md` exists, it goes in the context files** (the
    design source of truth from `/smithy:pattern`); if it doesn't and the
    job is UI-heavy, recommend running `/smithy:pattern` before forging. Requirements are numbered and
    testable. **Tag each brief's `## Persona` section** per the mapping in
@@ -139,7 +139,7 @@ process, not deciding silently.
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
    (review packages are built from this sha — never HEAD~1).
 
-8. **Log.** Design decisions + rejected alternatives → `docs/smithy/decisions.md`
+8. **Log.** Design decisions + rejected alternatives → `$SMITHY_MEM/decisions.md`
    (≤3 lines each). Update STATE.md (phase BLUEPRINT, next step: forge task 1).
    `ledger.sh append blueprint <slug> plan DONE jobs/<slug>/plan.md`
 
@@ -159,4 +159,4 @@ process, not deciding silently.
 - Every brief passes the self-containment test.
 - Base sha recorded in STATE.md.
 
-Handoff: "Plan at `docs/smithy/jobs/<slug>/plan.md` (N tasks) — run `/smithy:forge` to implement."
+Handoff: "Plan at `$SMITHY_MEM/jobs/<slug>/plan.md` (N tasks) — run `/smithy:forge` to implement."

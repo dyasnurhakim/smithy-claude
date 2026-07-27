@@ -9,7 +9,7 @@
 ## CPU profiling
 
 ```
-node --cpu-prof --cpu-prof-dir=docs/smithy/jobs/<slug>/reports/perf <entry.js>
+node --cpu-prof --cpu-prof-dir=$SMITHY_MEM/jobs/<slug>/reports/perf <entry.js>
 ```
 Inspect the `.cpuprofile` hot functions (self time %). For TS, run the built
 output or use tsx with the same flag.

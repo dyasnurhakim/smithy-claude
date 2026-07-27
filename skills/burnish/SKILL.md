@@ -27,7 +27,7 @@ cannot run honestly; say so and stop.
 
 ## 1. Baseline capture
 
-Evidence dir: `docs/smithy/jobs/<slug>/reports/burnish-evidence/`.
+Evidence dir: `$SMITHY_MEM/jobs/<slug>/reports/burnish-evidence/`.
 Screenshot every key page/state the user names (default: main pages plus
 one form, one empty state, one error state) at 320 / 768 / 1440 widths:
 `npx playwright screenshot --viewport-size=<w>,720 <url> <dir>/base-<page>-<w>.png`
@@ -36,7 +36,7 @@ before-images for every later fix.
 
 ## 2. Evaluate — standard first, then eyes
 
-**Standard:** `docs/smithy/DESIGN.md` if it exists (tokens, states, voice —
+**Standard:** `$SMITHY_MEM/DESIGN.md` if it exists (tokens, states, voice —
 drift from it is a finding with the DESIGN.md line cited). No DESIGN.md →
 evaluate against these declared heuristics AND say so in the report:
 - Hierarchy: one clear primary action/message per view; scale contrast.

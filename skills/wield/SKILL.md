@@ -28,7 +28,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    from the user (standalone). Each flow: steps, expected outcome, edge and
    error variants. No invented requirements — flows trace to the spec.
 
-   **Persona mode — automatic when `docs/smithy/personas/` exists** (created
+   **Persona mode — automatic when `$SMITHY_MEM/personas/` exists** (created
    by `/smithy:commission`; offer to run it if absent on a multi-role app):
    - Derive flows PER persona from each persona's jobs-to-be-done, executed
      within that persona's permission boundary (their credentials/role).
@@ -44,7 +44,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> wield ST
    patrons/support.md when error-path flows are in scope (persona-modes.md,
    cap 2 + project), report path `reports/test-qa.md`,
    and — for any browser/UI target — the MANDATORY evidence dir
-   `docs/smithy/jobs/<slug>/reports/qa-evidence/`. The brief states the
+   `$SMITHY_MEM/jobs/<slug>/reports/qa-evidence/`. The brief states the
    evidence contract explicitly: one screenshot per flow at its assertion
    point, before/after pairs for mutating actions, one screenshot per
    finding named `issue-NNN-<what>.png`. A UI QA report with zero

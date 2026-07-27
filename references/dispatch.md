@@ -88,7 +88,7 @@ concerns: []
 ## Persona (optional — selection per ${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md)
 - <persona file path(s), max per the mode table — e.g. masters/engineer.md + masters/security.md>
 ## Report
-Write your report to: docs/smithy/jobs/<slug>/reports/task-N-impl.md
+Write your report to: $SMITHY_MEM/jobs/<slug>/reports/task-N-impl.md
 Open it with a smithy envelope (kind: impl-report) per your agent
 instructions, then the body with `Status: <STATUS>` as its first line.
 Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED

@@ -34,7 +34,7 @@ every slice keeps the plan and the complete changed-file list, so
 cross-cutting context survives):
 
 ```
-P=docs/smithy/jobs/<slug>; R=$P/reports
+P=$SMITHY_MEM/jobs/<slug>; R=$P/reports
 review-package.sh build $P/plan.md $R/guild-pkg.md          # full — engineer, security, qa, product
 review-package.sh build $P/plan.md $R/guild-pkg-ui.md "" HEAD '*.tsx' '*.vue' '*.svelte' '*.css' '*.html' 'src/components/*' 'src/pages/*'   # uiux, designer, end-user, marketing
 review-package.sh build $P/plan.md $R/guild-pkg-infra.md "" HEAD 'Dockerfile*' 'k8s/*' 'terraform/*' '.github/*' '*migrations*' '*.config.*' '*.env.example'   # sre, support
@@ -65,7 +65,7 @@ diff content (`git diff --stat <base>..HEAD` + file list):
 
 Show the selected roster with one-line reasons and note the cost (N parallel
 `review`-routed agents). The user may trim or extend it. If
-`docs/smithy/personas/` exists, tell patron-end-user's dispatch to read those
+`$SMITHY_MEM/personas/` exists, tell patron-end-user's dispatch to read those
 files too (its persona instructs it to embody them).
 
 ## 3. Live evidence target (UI-facing personas)
@@ -77,7 +77,7 @@ from spec.md/STATE.md — or ask; never guess a URL):
 - The dispatch prompts for `masters/uiux`, `masters/designer`,
   `patrons/end-user`, `patrons/marketing`, and `patrons/support`
   additionally get: the target URL, and the evidence dir
-  `docs/smithy/jobs/<slug>/reports/guild-evidence/<persona>/`.
+  `$SMITHY_MEM/jobs/<slug>/reports/guild-evidence/<persona>/`.
 - Those personas drive the target headlessly via Bash with Playwright
   (`npx playwright screenshot --viewport-size=1280,720 <url> <dir>/NNN-<what>.png`
   for states; a scratch spec file for multi-step flows — wield's ts playbook
@@ -96,7 +96,7 @@ message (parallel Agent calls). Each prompt = effort banner + paths only:
 persona file, that persona's SCOPED package (full for engineer/security/
 qa/product; ui slice for uiux/designer/end-user/marketing; infra slice for
 sre/support), creed, report output path
-`docs/smithy/jobs/<slug>/reports/guild-<persona>.md`, the live-target block
+`$SMITHY_MEM/jobs/<slug>/reports/guild-<persona>.md`, the live-target block
 (step 3, when applicable) + the verbatim Do-Not-Trust-the-Report line.
 Remind each: EVERY finding needs proof per the inspector evidence contract.
 Each returns only: verdicts, finding counts, one-line summary.
@@ -119,7 +119,7 @@ Read the report envelopes first (`envelope.sh get/list`), then bodies:
 
 ## 6. Verdict
 
-Write `docs/smithy/jobs/<slug>/reports/guild-verdict.md` — envelope
+Write `$SMITHY_MEM/jobs/<slug>/reports/guild-verdict.md` — envelope
 (kind: guild-verdict, agent: controller, status: PRODUCTION_READY |
 NOT_READY) + body:
 

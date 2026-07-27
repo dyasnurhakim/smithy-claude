@@ -3,11 +3,12 @@
 #
 #   guard.sh hook                 PreToolUse Bash hook mode: reads the hook JSON
 #                                 on stdin, exits 0 (allow) or 2 (block, reason
-#                                 on stderr). Enforces ONLY in projects that
-#                                 have docs/smithy/ (smithy-managed).
+#                                 on stderr). Enforces ONLY in projects whose
+#                                 smithy memory dir exists (smithy-managed) —
+#                                 wherever paths.sh resolves it to.
 #   guard.sh check "<command>"    Test a command string directly (same rules).
 #   guard.sh grant <job>          Authorize `git commit` for this job (written
-#                                 at plan-gate approval). File: docs/smithy/.git-grant
+#                                 at plan-gate approval). File: <mem>/.git-grant
 #   guard.sh revoke               Remove all grants/tokens (job end / handover).
 #   guard.sh allow-push-once      Mint a ONE-SHOT push token (live user yes only).
 #   guard.sh allow-once           Mint a ONE-SHOT destructive-command token
@@ -22,14 +23,19 @@
 #     blocked unless a one-shot destructive token exists (consumed on use)
 set -u
 
-# Resolve the MAIN worktree's root (grants/tokens live there — linked
-# worktrees created for parallel tasks share the main repo's authorization).
-if COMMON="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
-  PROJECT_ROOT="$(dirname "$COMMON")"
-else
-  PROJECT_ROOT="$(pwd)"
-fi
-MEM="$PROJECT_ROOT/docs/smithy"
+# Grants/tokens live in the MAIN worktree's memory dir — linked worktrees
+# created for parallel tasks share the main repo's authorization. paths.sh
+# resolves that dir wherever it lives (it need not be inside the repo).
+#
+# SMITHY_PATHS_FAST=1 keeps resolution to pure bash: this runs on the PreToolUse
+# hook path, i.e. before EVERY Bash call, so it must not spawn an interpreter.
+# Fast mode skips only the "where would a NEW dir go" rule, which cannot matter
+# here — init-memory.sh registers every non-default location in projects.tsv,
+# and an unresolved dir means "not smithy-managed", which is a no-op below.
+SMITHY_PATHS_FAST=1
+# shellcheck source=./paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"
+MEM="$SMITHY_MEM"
 GRANT="$MEM/.git-grant"
 PUSH_TOKEN="$MEM/.push-once"
 DESTRUCTIVE_TOKEN="$MEM/.destructive-once"

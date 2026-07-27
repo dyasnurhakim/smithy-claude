@@ -23,7 +23,7 @@ consistency, error-state UX in the changed surfaces.
 
 ## Standard
 
-If `docs/smithy/DESIGN.md` exists (from /smithy:pattern), it is the binding
+If `$SMITHY_MEM/DESIGN.md` exists (from /smithy:pattern), it is the binding
 standard — drift from its tokens, states, or voice is a finding citing the
 DESIGN.md rule. Without it, judge by the hunt list below and say so.
 

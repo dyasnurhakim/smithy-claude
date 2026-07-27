@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.11.0 — unreleased
+
+Memory can live outside the repo; two-tier (global + project) config; a
+model registry that survives future releases without a plugin update.
+
+- **Memory is no longer pinned to `<repo>/docs/smithy/`.** New
+  `scripts/paths.sh` is the single resolver — every script sources it
+  instead of re-deriving the repo root. Resolution, first match wins:
+  `$SMITHY_MEM_DIR` env → `<repo>/.smithy-path` pointer file →
+  `$SMITHY_HOME/projects.tsv` registry (fully outside the repo) → an
+  existing `<repo>/docs/smithy/` (back-compat) → the global
+  `memory.location` default. Fixes the case where a project cleans,
+  regenerates, or gitignores `docs/` and destroys the ledger mid-job.
+  `paths.sh --dump` shows the resolved dir and which rule produced it.
+- **`init-memory.sh` asks instead of guessing.** With no location
+  configured it exits 3 and names the options (`--in-repo`, `--external`,
+  `--at <dir>`, plus `--pointer` and `--global-default`) rather than
+  silently creating `docs/smithy/`. Existing projects are untouched:
+  a `docs/smithy/` that already exists still wins.
+- **Two config layers above the defaults**: `$SMITHY_HOME/config.json`
+  (global — every project on this machine) and `$SMITHY_MEM/config.json`
+  (project). Merge is per key, so a global model and a project effort
+  combine on one role. `--dump`'s SOURCE column names the winning layer.
+  New `scripts/config.sh` (`get`/`source`/`set global|project`/`layers`/
+  `show`/`memory-location`) is the layered read/write surface; writes are
+  sparse — setting a value the layer below already provides prunes the key.
+- **Model registry is now DATA, not shell.** `defaults/models.json`
+  replaces the hardcoded `CLAUDE_MODELS`/`CODEX_MODELS` lists. Three ways
+  a new release needs no smithy edit: (1) tier names
+  `flagship`/`workhorse`/`fast` are valid config values and never change —
+  the shipped defaults use them; (2) `id_patterns` pass unknown ids through
+  verbatim, so `claude-opus-6`, `sonnet-9`, `gpt-7` work today; (3)
+  `$SMITHY_HOME/models.json` deep-merges over the registry, so a whole new
+  harness family can be added locally. Cross-family values translate BY
+  TIER. The registry validates syntax only — calibrate's dispatch probe
+  remains the availability gate.
+- **`/smithy:calibrate` gained scope.** Asks global vs project before
+  writing, sources its model/effort/role options from `routing.sh
+  --models`/`--roles` instead of a hardcoded prose list, and documents
+  relocating an existing project's memory.
+- **Fixed: the ledger split across parallel worktrees.** `ledger.sh` used
+  `--show-toplevel` (worktree-local) while `guard.sh` used
+  `--git-common-dir` (main worktree), so during a parallel forge batch each
+  linked worktree wrote its own ledger while grants read from the main one.
+  All memory now anchors on the main worktree.
+- **Routing got ~28x fewer subprocesses.** `--dump` spawned python3 once
+  per role/field/config-file (28 spawns, 42 with a third layer); JSON work
+  is now one `scripts/lib/smithy_config.py` call. Guard's hook path stays
+  pure bash (rules 1-4, no interpreter spawn): +5ms per Bash call.
+- New surfaces: `routing.sh --models`, `routing.sh --roles`,
+  `paths.sh set-mem|unset-mem`, `config.sh memory-location`.
+- Skill prose now uses `$SMITHY_MEM/...` throughout (73 call sites) with a
+  bootstrap that resolves it per session. `references/memory.md` gained a
+  Location section; `references/harness.md` documents tier resolution.
+- New test suite `tests/paths-matrix.sh` (all five resolution rules,
+  external-memory guard/ledger/review-package behavior, two-tier writes,
+  worktree sharing). `tests/routing-matrix.sh` extended to 3 layers, tier
+  expansion, unreleased ids, and user-extended registries.
+
 ## 0.10.0 — unreleased
 
 Codex CLI harness support (GPT-5.6 sol/terra/luna + older generations).

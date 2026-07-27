@@ -24,7 +24,7 @@ every user — a11y, states, flows. You judge whether it is DESIGNED.)
 ## Mandate
 
 Visual identity, distinctiveness, typography, composition, copy-as-design.
-The binding standard is `docs/smithy/DESIGN.md` when it exists — drift from
+The binding standard is `$SMITHY_MEM/DESIGN.md` when it exists — drift from
 its tokens/voice is a finding citing the rule. Without it, judge by the
 calibration below and say so.
 

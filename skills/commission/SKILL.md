@@ -9,17 +9,19 @@ description: "Generate project test personas from real user roles (evidence + in
 without knowing whose hand it fits.)
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/envelope.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append commission <slug-or-'-'> personas STARTED -`
 
-Output: one file per role at `docs/smithy/personas/<role-slug>.md`.
+Output: one file per role at `$SMITHY_MEM/personas/<role-slug>.md`.
 These are PROJECT personas (specific real users of THIS system) — distinct
 from the plugin's generic masters/patrons, which they complement.
 
 ## Process
 
 1. **Discover the roles — evidence first, questions second.**
-   - Read `docs/smithy/jobs/*/spec.md`, README, and product docs for named
+   - Read `$SMITHY_MEM/jobs/*/spec.md`, README, and product docs for named
      user types.
    - Grep the code for role definitions: `role`, `permission`, `is_admin`,
      enums like `Role.`, auth middleware, route guards, RBAC tables,
@@ -73,7 +75,7 @@ from the plugin's generic masters/patrons, which they complement.
    persona get flagged; personas whose role vanished from code get flagged
    as possibly stale — ask, don't delete.
 
-5. **Log.** `ledger.sh append commission <slug-or-'-'> personas DONE docs/smithy/personas/`
+5. **Log.** `ledger.sh append commission <slug-or-'-'> personas DONE $SMITHY_MEM/personas/`
    and a ≤3-line decisions.md entry naming the roles covered.
 
 ## Consumers (tell the user at exit)
@@ -92,4 +94,4 @@ from the plugin's generic masters/patrons, which they complement.
 | "One generic 'user' persona is enough" | Then wield tests one viewpoint and misses every permission boundary. Boundaries live BETWEEN personas. |
 | "I'll fill in plausible stakes myself" | Invented stakes = invented severity calibration = miscalibrated QA. Ask. |
 
-Handoff: "Personas at `docs/smithy/personas/` — run `/smithy:wield` for per-persona QA."
+Handoff: "Personas at `$SMITHY_MEM/personas/` — run `/smithy:wield` for per-persona QA."

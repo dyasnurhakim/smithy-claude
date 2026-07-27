@@ -6,7 +6,9 @@ description: "Research → spec: explores the codebase, turns every assumption i
 # Assay — Research & Spec
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/memory.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 Pick a kebab-case job slug from the request; log:
 `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append assay <slug> spec STARTED -`
 
@@ -62,7 +64,7 @@ be skipped.
    Prefer reusing an existing pattern over inventing one — name the pattern
    you'd reuse and where it lives.
 
-4. **Write `docs/smithy/jobs/<slug>/spec.md`:**
+4. **Write `$SMITHY_MEM/jobs/<slug>/spec.md`:**
 
    ```markdown
    # Spec — <title>
@@ -80,7 +82,7 @@ be skipped.
    ```
 
 5. **Log decisions.** Each user-resolved ambiguity gets a ≤3-line entry in
-   `docs/smithy/decisions.md` (decision + why). Update STATE.md (active job,
+   `$SMITHY_MEM/decisions.md` (decision + why). Update STATE.md (active job,
    phase ASSAY, next step); `ledger.sh append assay <slug> spec DONE jobs/<slug>/spec.md`.
 
 ## Red flags — these thoughts mean STOP
@@ -99,4 +101,4 @@ be skipped.
 - Every finding has file:line evidence.
 - The user has seen (or explicitly waived reviewing) the spec.
 
-Handoff: "Spec at `docs/smithy/jobs/<slug>/spec.md` — run `/smithy:blueprint` to plan."
+Handoff: "Spec at `$SMITHY_MEM/jobs/<slug>/spec.md` — run `/smithy:blueprint` to plan."

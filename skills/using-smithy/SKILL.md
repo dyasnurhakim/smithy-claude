@@ -52,7 +52,7 @@ slash command: `/smithy:plan` invokes `smithy:blueprint`, etc.
    assumption in forge is not.
 2. **RCA before fix.** Any unexpected failure routes to `anneal` before any
    fix is attempted — including failures inside forge/temper.
-3. **The ledger outranks memory.** If `docs/smithy/STATE.md` exists, read it
+3. **The ledger outranks memory.** If `$SMITHY_MEM/STATE.md` exists, read it
    and `ledger.sh tail` before acting on any recollection of project state.
 4. **One writer per file.** Ledger via `ledger.sh` only; config via
    `calibrate` only; STATE.md per the memory protocol.

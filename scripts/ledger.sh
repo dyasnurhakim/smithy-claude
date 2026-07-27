@@ -10,8 +10,12 @@
 #   2026-07-06T10:22Z | forge | user-auth | task-2 | DONE | jobs/user-auth/reports/task-2-impl.md
 set -euo pipefail
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-LEDGER="$PROJECT_ROOT/docs/smithy/ledger.md"
+# Resolve via paths.sh: one ledger per PROJECT, anchored on the MAIN worktree.
+# (Deriving it from --show-toplevel used to split the ledger during a parallel
+# forge batch — each linked worktree would have written its own.)
+# shellcheck source=./paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"
+LEDGER="$SMITHY_MEM/ledger.md"
 VALID_STATUSES="STARTED DONE DONE_WITH_CONCERNS NEEDS_CONTEXT BLOCKED APPROVED REJECTED PASS FAIL PARTIAL"
 
 case "${1:-}" in

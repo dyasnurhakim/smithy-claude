@@ -19,7 +19,7 @@ agent: jigsmith
 status: DONE
 confidence: 9
 artifacts:
-  - docs/smithy/jobs/user-auth/reports/task-3-impl.md
+  - $SMITHY_MEM/jobs/user-auth/reports/task-3-impl.md
 key_facts:
   - "RangeError fires even when text is already short — only consistent reading of req 3"
 concerns: []

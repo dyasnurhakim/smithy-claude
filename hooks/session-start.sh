@@ -4,8 +4,10 @@
 # project state head when smithy memory exists. Read-only, fail-silent.
 set -u
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE="$ROOT/docs/smithy/STATE.md"
+SMITHY_PATHS_FAST=1   # session start must not stall; rules 1-4 are pure bash
+# shellcheck source=../scripts/paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" && pwd)/paths.sh" 2>/dev/null || SMITHY_MEM=""
+STATE="${SMITHY_MEM:+$SMITHY_MEM/STATE.md}"
 
 {
   cat <<'DIGEST'
@@ -21,10 +23,11 @@ Iron rules:
 </smithy-digest>
 DIGEST
 
-  if [ -f "$STATE" ]; then
-    echo "[smithy] Project memory found (docs/smithy/):"
+  if [ -n "$STATE" ] && [ -f "$STATE" ]; then
+    echo "[smithy] Project memory found at $SMITHY_MEM ($SMITHY_MEM_SOURCE):"
     head -n 40 "$STATE"
-    echo "[smithy] Resume with /smithy — it recomputes position from docs/smithy/ledger.md, not recollection."
+    echo "[smithy] \$SMITHY_MEM=$SMITHY_MEM — every smithy path in the skills is relative to it."
+    echo "[smithy] Resume with /smithy — it recomputes position from \$SMITHY_MEM/ledger.md, not recollection."
   fi
 } 2>/dev/null
 

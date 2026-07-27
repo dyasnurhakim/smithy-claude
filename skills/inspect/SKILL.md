@@ -14,7 +14,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append inspect <slug> <unit> 
   the review package was built by forge; skip to Dispatch.
 - **Standalone mode**: ask the user what to review and against what base
   (default: merge-base with the default branch). Write an ad-hoc brief at
-  `docs/smithy/jobs/adhoc-<date>/briefs/review-brief.md` capturing what the
+  `$SMITHY_MEM/jobs/adhoc-<date>/briefs/review-brief.md` capturing what the
   change is SUPPOSED to do (from the user's description — ask, don't infer
   silently). Then:
   `review-package.sh record-base` is NOT appropriate here (HEAD is the work);
@@ -41,7 +41,9 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append inspect <slug> <unit> 
 
 4. **Route the findings:**
    - Pipeline mode: return verdicts to forge (it owns the fix loop).
-   - Standalone: if `gates.auto_fix_review_findings` is true in config,
+   - Standalone: if `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get gates.auto_fix_review_findings`
+     prints true (it merges defaults → global → project; never read a config
+     file directly),
      offer to dispatch fixes for Critical/High via a forge-style forger
      brief; otherwise list findings with recommended actions and stop —
      the user decides.

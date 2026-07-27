@@ -6,7 +6,9 @@ description: "Full pipeline orchestrator (research→plan→implement→review�
 # Smithy — Pipeline Orchestrator
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/memory.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 
 **You orchestrate. You never do phase work yourself.** Each phase runs by
 invoking that phase's skill; you read back only status lines, artifact paths,
@@ -66,15 +68,15 @@ digraph smithy_pipeline {
 re-consolidates — not the whole TEMPER phase.)
 
 GUILD (`/smithy:guild`) is the production-readiness persona panel. It runs
-when the `review_panel` config is `auto` or `always` and is skipped when
-`never`. NOT_READY routes finding briefs back to FORGE; after fixes, only
+when `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get review_panel` is `auto` or
+`always`, and is skipped when `never`. NOT_READY routes finding briefs back to FORGE; after fixes, only
 the personas that raised findings re-run. GUILD has no user gate of its own —
 its verdict feeds the flow; Medium/Low deferrals need explicit user
 acceptance recorded in decisions.md.
 
 ## Entry: resume or start
 
-1. Read `docs/smithy/STATE.md` and `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30`.
+1. Read `$SMITHY_MEM/STATE.md` and `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30`.
 2. If STATE.md shows an active job, AskUserQuestion: **Resume** at the
    recorded position (say exactly where: phase + unit + next action) or
    **Start new** (the old job stays on disk) or **Abort old job** (STATE.md
@@ -87,8 +89,9 @@ acceptance recorded in decisions.md.
 
 ## Gates
 
-At each `[gate]` (skipped only if `gates.pause_between_phases` is false in
-the effective config):
+At each `[gate]` (skipped only if `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get
+gates.pause_between_phases` prints false — that command merges all three
+config layers, so never read a config file directly):
 
 1. Present: the phase's artifact path + a ≤5-line summary + what the next
    phase will do + any concerns carried forward.

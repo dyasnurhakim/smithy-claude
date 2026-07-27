@@ -21,8 +21,11 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
 4. Models: this harness uses the GPT-5.6 family — `sol` (flagship: planning,
    review, debugging), `terra` (workhorse: implementation, testing), `luna`
    (fast: mechanical). `scripts/routing.sh <role>` translates automatically
-   when `docs/smithy/config.json` has `"harness": "codex"` — set it once via
-   the calibrate skill.
+   once `"harness": "codex"` is set (calibrate skill, global or project layer).
+   Model names live in `defaults/models.json`, NOT in any script: tier names
+   (`flagship`/`workhorse`/`fast`) and unrecognized-but-matching ids both
+   resolve, so new releases need no edit. `routing.sh --models` lists what the
+   active harness accepts — never rely on a remembered list.
 
 ## Non-negotiables (all harnesses)
 
@@ -35,14 +38,22 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
   no history rewrites, no destructive cloud/DB/fs commands without explicit
   approval. `bash scripts/guard.sh check "<command>"` answers "would this
   be blocked?" — use it when unsure.
-- Per-project memory lives in the TARGET project's `docs/smithy/`
-  (`scripts/init-memory.sh`); trust STATE.md + ledger + git log over
+- Per-project memory lives at `$SMITHY_MEM`, which is NOT necessarily inside
+  the repo. Resolve it with `bash scripts/paths.sh mem` before using any smithy
+  path, and never hardcode `docs/smithy` (projects that clean or regenerate
+  `docs/` would lose the ledger mid-job). `scripts/init-memory.sh` scaffolds it
+  and exits 3 when the location is undecided — that means ASK the user, per
+  `references/memory.md` § Location. Trust STATE.md + ledger + git log over
   recollection.
 
 ## Working on smithy itself
 
 Bash tests: `tests/guard-matrix.sh`, `tests/worktree-matrix.sh`,
-`tests/routing-matrix.sh` — all must stay green. SKILL.md budget ≤300
-lines. Skill descriptions are YAML-quoted (they contain colons). Version
-bumps touch `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
-and `.codex-plugin/plugin.json` together.
+`tests/routing-matrix.sh`, `tests/paths-matrix.sh` — all must stay green.
+`scripts/paths.sh` is sourced by the PreToolUse guard hook, so it must stay pure
+bash for resolution rules 1-4 (no interpreter spawn) and must never enable
+`errexit` when sourced.
+
+SKILL.md budget ≤300 lines. Skill descriptions are YAML-quoted (they contain
+colons). Version bumps touch `.claude-plugin/plugin.json`,
+`.claude-plugin/marketplace.json`, and `.codex-plugin/plugin.json` together.

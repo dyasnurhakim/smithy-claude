@@ -12,8 +12,14 @@
 #       which silently drops all but the last commit.
 set -euo pipefail
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "review-package.sh: not a git repo" >&2; exit 1; }
-STATE="$PROJECT_ROOT/docs/smithy/STATE.md"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./paths.sh
+. "$SCRIPT_DIR/paths.sh"
+git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "review-package.sh: not a git repo" >&2; exit 1; }
+# Diffs come from THIS worktree (a parallel task branch may be checked out in a
+# linked one); STATE lives in the project's single memory dir, wherever that is.
+PROJECT_ROOT="$SMITHY_ROOT"
+STATE="$SMITHY_MEM/STATE.md"
 
 case "${1:-}" in
   record-base)
@@ -34,11 +40,9 @@ case "${1:-}" in
     shift; shift; shift; [ $# -gt 0 ] && shift; [ $# -gt 0 ] && shift
     # remaining args = optional pathspecs to scope the diff (persona slices)
     PATHSPEC=("$@")
-    # diff context lines: docs/smithy/config.json review_diff_context, default 5
-    U="$(python3 -c "
-import json,sys
-try: print(int(json.load(open('$PROJECT_ROOT/docs/smithy/config.json')).get('review_diff_context',5)))
-except Exception: print(5)" 2>/dev/null || echo 5)"
+    # diff context lines: layered config key review_diff_context (default 5)
+    U="$(bash "$SCRIPT_DIR/config.sh" get review_diff_context 2>/dev/null)"
+    case "$U" in ''|*[!0-9]*) U=5 ;; esac
     [ -f "$brief" ] || { echo "review-package.sh: brief not found: $brief" >&2; exit 1; }
     base="$(grep -m1 '^- Base sha:' "$STATE" 2>/dev/null | awk '{print $4}')" || true
     [ -n "${base:-}" ] && [ "$base" != "none" ] || { echo "review-package.sh: no base sha in $STATE — run record-base first" >&2; exit 1; }

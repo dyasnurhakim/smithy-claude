@@ -7,7 +7,9 @@ description: "Debugging: reproduce → read-only RCA → approved minimal fix + 
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory.md`,
 and `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 Job slug: the active job from STATE.md, or `adhoc-<YYYY-MM-DD>` for standalone use.
 Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append anneal <slug> rca STARTED -`
 
@@ -30,7 +32,7 @@ cause is a guess wearing a fix's clothes.
    exact repro command, expected vs actual. **No repro command → get one
    first** — ask the user or derive it from the failing test. "It sometimes
    breaks" is not a symptom; "this command produced this output at this
-   time" is. Write `docs/smithy/jobs/<slug>/reports/rca-<n>-context.md`:
+   time" is. Write `$SMITHY_MEM/jobs/<slug>/reports/rca-<n>-context.md`:
 
    ```markdown
    # Failure Context
@@ -62,7 +64,7 @@ cause is a guess wearing a fix's clothes.
 4. **Present root cause + recommended fix to the user**: the mechanism
    (file:line — what happens and why it produces the symptom), the minimal
    fix, the regression test. AskUserQuestion: apply the fix / revise / stop.
-   Log the decision in `docs/smithy/decisions.md` (≤3 lines).
+   Log the decision in `$SMITHY_MEM/decisions.md` (≤3 lines).
 
 5. **Apply via the jigsmith — bug fixes are always TDD.** The regression
    test from the RCA IS the failing test: RED = the bug reproduced as a

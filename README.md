@@ -34,7 +34,7 @@ Codex plugins install from the [official marketplace](https://github.com/openai/
 
 **Manual (works today):** clone the repo — Codex picks up `AGENTS.md` (the harness entrypoint) automatically.
 
-Either way: enable subagents (`~/.codex/config.toml` → `[features] multi_agent = true`) and set the harness once per project — `"harness": "codex"` in `docs/smithy/config.json` (or via the calibrate skill). Model routing translates automatically: flagship roles get `sol`, workhorse roles `terra`, mechanical `luna`; older generations (`gpt-5.5`, `gpt-5.4`, …) can be set per role as explicit ids. Full adaptation rules (dispatch mapping, what degrades — notably: plugin hooks don't run there, so the git guard is prompt-level) live in `references/harness.md`. **Status: structurally faithful to the proven superpowers adapter — not yet live-tested under Codex, and not yet submitted to the marketplace (smithy is under active development; the sync script runs when it's time).**
+Either way: enable subagents (`~/.codex/config.toml` → `[features] multi_agent = true`) and set the harness once per project — `"harness": "codex"` via the calibrate skill (project or global layer). Model routing translates automatically: flagship roles get `sol`, workhorse roles `terra`, mechanical `luna`; older generations (`gpt-5.5`, `gpt-5.4`, …) can be set per role as explicit ids. Full adaptation rules (dispatch mapping, what degrades — notably: plugin hooks don't run there, so the git guard is prompt-level) live in `references/harness.md`. **Status: structurally faithful to the proven superpowers adapter — not yet live-tested under Codex, and not yet submitted to the marketplace (smithy is under active development; the sync script runs when it's time).**
 
 ## Usage
 
@@ -75,7 +75,7 @@ you    > /smithy add CSV export to the reports page
 ASSAY    smithy restates the goal, then asks instead of assuming:
          "Which columns? All report types or just tabular ones? Max rows —
          stream or cap? Who may export (role check)?"
-         → docs/smithy/jobs/csv-export/spec.md   (open questions: none)
+         → $SMITHY_MEM/jobs/csv-export/spec.md   (open questions: none)
 
 GATE     "Spec ready — approve, revise, or abort?"           [you: approve]
 
@@ -108,7 +108,7 @@ GATE     "Ship it?"                                          [you: approve]
 after a crash or compaction.
 ```
 
-Everything the run produced lives in your repo under `docs/smithy/` — spec, plan, briefs, every agent report, an append-only ledger, and a ≤40-line STATE.md. Kill the session at any point; `/smithy` recomputes its position from the ledger, not from memory.
+Everything the run produced lives under `$SMITHY_MEM` (in your repo or outside it, your choice — see [Per-project memory](#per-project-memory)) — spec, plan, briefs, every agent report, an append-only ledger, and a ≤40-line STATE.md. Kill the session at any point; `/smithy` recomputes its position from the ledger, not from memory.
 
 ## Skills
 
@@ -122,7 +122,7 @@ Everything the run produced lives in your repo under `docs/smithy/` — spec, pl
 | `/smithy:inspect` | `code-review` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
 | `/smithy:guild` | `review-panel` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
 | `/smithy:commission` | `personas` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
-| `/smithy:pattern` | `design` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `docs/smithy/DESIGN.md`, the design source of truth |
+| `/smithy:pattern` | `design` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `$SMITHY_MEM/DESIGN.md`, the design source of truth |
 | `/smithy:burnish` | `design-review` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
 | `/smithy:strike` | `fix` | **One-shot fixes** — small known changes: lightweight plan → one confirmation → forge (no TDD) → targeted tests → one report |
 | `/smithy:anneal` | `debug` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
@@ -157,20 +157,43 @@ Agent names follow their skill's verb: the *forger* forges, the *inspector* insp
 
 ## Dynamic model routing
 
-Each pipeline role maps to a model + effort in `docs/smithy/config.json` (project) overriding `defaults/config.json` (plugin):
+Each pipeline role maps to a model + effort. Config merges across **three layers**, lowest precedence first — so "always use fable for review" is set once, globally, instead of per repo:
+
+| Layer | File | Scope |
+|---|---|---|
+| defaults | `<plugin>/defaults/config.json` | ships with smithy |
+| **global** | `$SMITHY_HOME/config.json` | **every project on this machine** |
+| **project** | `$SMITHY_MEM/config.json` | this project only |
+
+`$SMITHY_HOME` defaults to `~/.smithy` (honors `XDG_CONFIG_HOME`). Merging is per key, so a global model and a project effort combine on the same role.
+
+The shipped defaults name **tiers**, not models:
 
 ```json
 "routing": {
-  "planning":       { "model": "opus",   "effort": "high"   },
-  "implementation": { "model": "sonnet", "effort": "medium" },
-  "review":         { "model": "opus",   "effort": "high"   },
-  "debugging":      { "model": "opus",   "effort": "high"   },
-  "testing":        { "model": "sonnet", "effort": "medium" },
-  "mechanical":     { "model": "haiku",  "effort": "low"    }
+  "planning":       { "model": "flagship",  "effort": "high"   },
+  "implementation": { "model": "workhorse", "effort": "medium" },
+  "review":         { "model": "flagship",  "effort": "high"   },
+  "debugging":      { "model": "flagship",  "effort": "high"   },
+  "testing":        { "model": "workhorse", "effort": "medium" },
+  "mechanical":     { "model": "fast",      "effort": "low"    }
 }
 ```
 
-The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Valid models, cheapest to most capable: `haiku` < `sonnet` < `opus` < `fable` (Claude 5 Mythos-class — availability depends on your account), plus `inherit`. Effort maps to an injected prompt banner — it is prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/high`.
+### Model values survive new releases
+
+The registry is data (`defaults/models.json`), never a list inside a script. A value may be:
+
+1. a **tier** — `flagship` / `workhorse` / `fast`, resolved to the harness's current model for that tier. Stable across every future release.
+2. a **family name** — `fable`, `opus`, `sonnet`, `haiku` (claude); `sol`, `terra`, `luna` (codex). Cross-family values translate *by tier*, so `opus` under the codex harness resolves to `sol`.
+3. **any id matching the harness's patterns** — `claude-*`, `opus*`, `sonnet*`, `haiku*`, `fable*` under claude; `gpt-*`, `o[0-9]*`, `codex*` under codex. This covers older generations (`gpt-5.4-codex`) *and* ones that don't exist yet (`claude-opus-6`, `gpt-7`) with **no smithy update**.
+4. `inherit` — omit the model parameter; the agent's frontmatter default applies.
+
+A whole new family goes in `$SMITHY_HOME/models.json`, which deep-merges over the plugin registry. Run `/smithy:calibrate` or `scripts/routing.sh --models` to see what your active harness accepts; `--dump` shows the effective table with the layer that supplied each value.
+
+The registry validates syntax only — **availability varies by account, so calibrate dispatches a live probe before writing any model value.** That split is what makes permissive patterns safe.
+
+The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort maps to an injected prompt banner — prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/high` (add `--global` for all projects).
 
 TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence verified from commit ordering) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
 
@@ -185,7 +208,7 @@ Reviews can fan out to **parallel persona reviewers** (one inspector agent, diff
 
 **Personas overlay every agent, not just reviewers** (`references/persona-modes.md`): the same persona file is a *judgment lens* for the inspector, *build constraints* for the forger/jigsmith (master-engineer rides every implementation task, plus at most one domain specialist), a *test lens* for the temperer (qa on unit tests, end-user/support on QA, sre on stress), and an *investigation lens* for the annealer (picked by symptom domain). Blueprint tags each task brief with its personas automatically.
 
-**Every finding must carry proof.** The inspector's evidence contract: file evidence (`file:line` + the offending excerpt), command evidence (verbatim output), or **screenshot evidence** — when the diff is user-facing and the app is runnable, UI-facing personas (UI/UX, end-user, marketing, support) drive it headlessly with Playwright and save screenshots to `docs/smithy/jobs/<job>/reports/guild-evidence/<persona>/` in your repo. Each finding states *why* it's flagged and *why* it got its severity (tied to the persona's calibration). No proof → it's reported as `cannot-verify`, not as a finding. The verdict ships twice: human-readable `guild-verdict.md` and machine-readable `guild-verdict.json` (findings with fingerprint, severity + reason, evidence path, fix — ready for CI or trend tooling).
+**Every finding must carry proof.** The inspector's evidence contract: file evidence (`file:line` + the offending excerpt), command evidence (verbatim output), or **screenshot evidence** — when the diff is user-facing and the app is runnable, UI-facing personas (UI/UX, end-user, marketing, support) drive it headlessly with Playwright and save screenshots to `$SMITHY_MEM/jobs/<job>/reports/guild-evidence/<persona>/`. Each finding states *why* it's flagged and *why* it got its severity (tied to the persona's calibration). No proof → it's reported as `cannot-verify`, not as a finding. The verdict ships twice: human-readable `guild-verdict.md` and machine-readable `guild-verdict.json` (findings with fingerprint, severity + reason, evidence path, fix — ready for CI or trend tooling).
 
 ## Git guard rails
 
@@ -225,16 +248,32 @@ Mixed repos (multiple manifests) are flagged with an `also=` hint and the skill 
 
 ## Per-project memory
 
-Every skill reads and updates `docs/smithy/` in your project:
+Every skill reads and updates one directory, `$SMITHY_MEM`:
 
 ```
-docs/smithy/
+$SMITHY_MEM/
 ├── STATE.md        # ≤40-line index: active job, phase, base sha, next step
-├── config.json     # routing overrides
+├── config.json     # this project's config overrides (sparse)
 ├── ledger.md       # append-only event log (one line per event)
 ├── decisions.md    # append-only decision log
 └── jobs/<slug>/    # spec.md, plan.md, briefs/, reports/, handoff.md
 ```
+
+### It does not have to live in your repo
+
+`docs/smithy/` is the default, not a requirement — plenty of repos clean, regenerate, or gitignore `docs/`, which would destroy the ledger mid-job. `scripts/paths.sh` resolves the location by the first rule that matches:
+
+| # | Rule | Set by |
+|---|---|---|
+| 1 | `$SMITHY_MEM_DIR` env var | you, per session |
+| 2 | `<repo>/.smithy-path` pointer file | `init-memory.sh --at <dir> --pointer` |
+| 3 | `$SMITHY_HOME/projects.tsv` registry — **fully outside the repo** | `init-memory.sh --external` |
+| 4 | `<repo>/docs/smithy/` when it already exists | existing projects keep working untouched |
+| 5 | global `memory.location` (`repo` / `external`) | `/smithy:calibrate` |
+
+The first time smithy runs in a project it **asks** where memory should live rather than guessing; answer once and it's recorded. `--pointer` also drops a one-line file at the repo root so a fresh clone on another machine finds the same dir (the registry is per-machine). `scripts/paths.sh --dump` shows the resolved dir and which rule produced it.
+
+Linked git worktrees — including the ones smithy creates for parallel task batches — all resolve to the *main* worktree's memory, so there is exactly one ledger per project.
 
 Recovery rule baked into every skill: **trust STATE.md, the ledger, and git log over recollection.** Sessions (and compactions) can die mid-run; the pipeline resumes at the first unit without a DONE/APPROVED ledger line.
 

@@ -20,7 +20,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> loop STAR
 
 ## Preconditions — check all four before any dispatch
 
-- `docs/smithy/jobs/<slug>/plan.md` exists and every task has a brief in
+- `$SMITHY_MEM/jobs/<slug>/plan.md` exists and every task has a brief in
   `briefs/`. Missing → offer `/smithy:blueprint`; never improvise briefs here.
 - STATE.md has a base sha (blueprint records it).
 - Working tree is clean (`git status --short`) — each task commits atomically.
@@ -41,8 +41,10 @@ recollection**, especially after compaction.
 
 ## Step 0 — choose the implementation mode (once per job)
 
-Read `implementation.tdd` from `docs/smithy/config.json` (fall back to
-`${CLAUDE_PLUGIN_ROOT}/defaults/config.json`):
+Read `implementation.tdd` with
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd` — it
+merges all three config layers (defaults → global → project), so never read a
+config file directly or you will miss the user's global default:
 
 - `"always"` → every task goes to the **jigsmith** (TDD; see `/smithy:jig`).
 - `"never"` → every task goes to the plain **forger**.
@@ -52,7 +54,7 @@ Read `implementation.tdd` from `docs/smithy/config.json` (fall back to
   visual/mechanical work. Mixed plans may choose per-task — say which tasks
   you'd route where and why.
 
-Record the choice in `docs/smithy/decisions.md` (≤3 lines).
+Record the choice in `$SMITHY_MEM/decisions.md` (≤3 lines).
 
 ## Per-task loop
 
@@ -82,7 +84,7 @@ Record the choice in `docs/smithy/decisions.md` (≤3 lines).
 
 5. **Review the task — never skip, never self-review.** Build the package
    (paths from the project root):
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build docs/smithy/jobs/<slug>/briefs/task-N.md docs/smithy/jobs/<slug>/reports/task-N-pkg.md docs/smithy/jobs/<slug>/reports/task-N-impl.md`
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build $SMITHY_MEM/jobs/<slug>/briefs/task-N.md $SMITHY_MEM/jobs/<slug>/reports/task-N-pkg.md $SMITHY_MEM/jobs/<slug>/reports/task-N-impl.md`
    Then dispatch the `smithy:inspector` per `/smithy:inspect` (routing role
    `review`; the Do-Not-Trust-the-Report line goes in the prompt verbatim).
    In TDD mode the inspector also verifies RED→GREEN commit ordering.
@@ -137,7 +139,7 @@ in isolated worktrees — but parallel is the user's choice, never automatic:
    worktree path with: "Work ONLY inside <worktree-path> — it is your
    checkout; commit there. Briefs/reports live in the MAIN repo at the
    absolute paths given." Reports go to the main repo's
-   `docs/smithy/jobs/<slug>/reports/` (absolute paths — reports are not
+   `$SMITHY_MEM/jobs/<slug>/reports/` (absolute paths — reports are not
    committed to task branches).
 6. **As each agent resolves**, handle its status per the sequential loop.
    Then per task, in plan order:
@@ -180,7 +182,7 @@ TRANSIENT scratch — needed while the loop runs (review packages embed them,
 statuses are machine-read from them), worthless after. When every task is
 DONE + APPROVED:
 
-1. Write `docs/smithy/jobs/<slug>/reports/forge-report.md` — the single
+1. Write `$SMITHY_MEM/jobs/<slug>/reports/forge-report.md` — the single
    surviving report. Envelope (kind: forge-report, unit: all, agent:
    controller, status: DONE; carry forward every unresolved
    key_facts/concerns item from ALL task reports) + body:
@@ -199,7 +201,7 @@ DONE + APPROVED:
    ## Carried concerns (verbatim from task envelopes)
    ```
 
-2. DELETE the per-task scratch: `rm docs/smithy/jobs/<slug>/reports/task-*-impl.md
+2. DELETE the per-task scratch: `rm $SMITHY_MEM/jobs/<slug>/reports/task-*-impl.md
    task-*-review.md task-*-pkg.md` — the consolidated report supersedes
    them. (Old ledger lines still name them; that's history, and the
    forge-report notes the consolidation.)

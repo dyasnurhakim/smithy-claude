@@ -1,5 +1,5 @@
 ---
-description: "Create a deliberate UI/UX design system with visual previews → docs/smithy/DESIGN.md (alias of smithy:pattern)"
+description: "Create a deliberate UI/UX design system with visual previews → the project DESIGN.md (alias of smithy:pattern)"
 argument-hint: "[same arguments as /smithy:pattern]"
 ---
 

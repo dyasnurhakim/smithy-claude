@@ -7,7 +7,7 @@ root) defining the flows as tasks, then:
 
 ```
 uv run locust --headless -u <users> -r <spawn-rate> -t <time> -H <host> \
-  -f docs/smithy/jobs/<slug>/reports/locustfile.py --csv docs/smithy/jobs/<slug>/reports/proof
+  -f $SMITHY_MEM/jobs/<slug>/reports/locustfile.py --csv $SMITHY_MEM/jobs/<slug>/reports/proof
 ```
 
 (or `python3 -m locust ...` / `poetry run locust ...` per the project env;

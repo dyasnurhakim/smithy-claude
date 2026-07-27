@@ -6,21 +6,23 @@ description: "Evidence-cited session handoff; next session resumes with zero re-
 # Handover — Session Handoff
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/memory.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 
 ## Process
 
 1. **Gather evidence — never write from recollection.** Run and read:
-   - `docs/smithy/STATE.md`
+   - `$SMITHY_MEM/STATE.md`
    - `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30`
    - `git status --short` and `git log --oneline -10`
    - The latest report files referenced by the ledger (paths only if long).
 
 2. **Determine the active job.** From STATE.md. If no active job, ask the
    user what this handoff should cover (ad-hoc work is written to
-   `docs/smithy/jobs/adhoc-<YYYY-MM-DD>/handoff.md`).
+   `$SMITHY_MEM/jobs/adhoc-<YYYY-MM-DD>/handoff.md`).
 
-3. **Write `docs/smithy/jobs/<slug>/handoff.md`** (overwrite previous) using
+3. **Write `$SMITHY_MEM/jobs/<slug>/handoff.md`** (overwrite previous) using
    EXACTLY this template:
 
    ```markdown
@@ -33,7 +35,7 @@ If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memor
    ## Current State of Files
    | Path | State |
    ## Decisions Made
-   - <from docs/smithy/decisions.md — reference, don't duplicate>
+   - <from $SMITHY_MEM/decisions.md — reference, don't duplicate>
    ## Blockers
    ## Exact Next Step
    <one concrete action, with the artifact path it starts from>

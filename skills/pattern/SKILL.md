@@ -1,6 +1,6 @@
 ---
 name: pattern
-description: "Design creation: subject-grounded direction with HTML previews, tokens, states, voice → docs/smithy/DESIGN.md. Triggers: 'pattern', 'design system', 'make it look good'."
+description: "Design creation: subject-grounded direction with HTML previews, tokens, states, voice → the project DESIGN.md. Triggers: 'pattern', 'design system', 'make it look good'."
 ---
 
 # Pattern — Design Creation
@@ -9,10 +9,12 @@ description: "Design creation: subject-grounded direction with HTML previews, to
 a pattern comes out template-shaped.)
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/memory.md` first.
-If `docs/smithy/` is missing, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append pattern <slug-or-'-'> design STARTED -`
 
-Output: `docs/smithy/DESIGN.md` — the project's design source of truth,
+Output: `$SMITHY_MEM/DESIGN.md` — the project's design source of truth,
 consumed by blueprint/forge briefs for UI tasks, judged against by
 master-uiux and `/smithy:burnish`.
 
@@ -48,7 +50,7 @@ one-line thesis, palette swatch, type pairing, and one signature move
 (the thing a screenshot would be recognized by).
 
 **Build one self-contained preview HTML per direction** at
-`docs/smithy/design/previews/<direction>.html` (inline CSS, no CDNs; a hero,
+`$SMITHY_MEM/design/previews/<direction>.html` (inline CSS, no CDNs; a hero,
 a form with states, a card, a table fragment). Previews are the proof —
 directions are chosen by looking, not by reading adjectives.
 AskUserQuestion: pick / blend / reject-and-repropose.
@@ -95,7 +97,7 @@ Concrete values, not vibes — every token has a value and a usage rule:
 
 ## 4. Write DESIGN.md + final preview
 
-`docs/smithy/DESIGN.md` is a human document — plain markdown, no envelope:
+`$SMITHY_MEM/DESIGN.md` is a human document — plain markdown, no envelope:
 Direction (thesis + signature move), Tokens (as CSS custom properties in a
 code block, copy-paste ready), Typography, States, Motion, Voice,
 Anti-template gate results, Do/Don't examples. Update the chosen preview to match the final
@@ -104,7 +106,7 @@ approves before this skill exits.
 
 ## 5. Log + handoff
 
-`ledger.sh append pattern <slug-or-'-'> design DONE docs/smithy/DESIGN.md`;
+`ledger.sh append pattern <slug-or-'-'> design DONE $SMITHY_MEM/DESIGN.md`;
 ≤3-line decisions.md entry (direction chosen, alternatives rejected).
 
 Tell the user: UI task briefs must now list DESIGN.md in context files

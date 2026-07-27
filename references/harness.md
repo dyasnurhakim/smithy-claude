@@ -9,28 +9,49 @@ session and adapt per this file.
 You know which harness you are: Claude Code sessions have the Agent/Skill
 tools and plugin hooks; Codex sessions read AGENTS.md and use
 spawn_agent/wait_agent/close_agent. If genuinely unsure, ask the user.
-Record the harness in `docs/smithy/config.json` (`"harness": "claude" |
-"codex"`) via `/smithy:calibrate` — routing.sh reads it.
+Record the harness via `/smithy:calibrate` (`"harness": "claude" | "codex"`) —
+in `$SMITHY_MEM/config.json` for one project, or in `$SMITHY_HOME/config.json`
+when every project on this machine uses the same harness. routing.sh reads
+whichever layer wins.
 
 ## Model families & tier translation
 
+The registry is DATA — `defaults/models.json` — never a list in a script.
+`routing.sh --models` prints what the active harness accepts; consult that
+rather than any list you remember.
+
 | Tier | Claude Code | Codex (GPT-5.6) | Roles at this tier (defaults) |
 |---|---|---|---|
-| flagship | `fable` (or `opus`) | `sol` | planning, review, debugging |
-| workhorse | `sonnet` | `terra` | research, implementation, testing |
-| fast | `haiku` | `luna` | mechanical |
+| `flagship` | `fable`, `opus` | `sol` | planning, review, debugging |
+| `workhorse` | `sonnet` | `terra` | research, implementation, testing |
+| `fast` | `haiku` | `luna` | mechanical |
 
-`routing.sh` translates automatically: with `harness: codex`, a config that
-says `opus` resolves to `sol`, `sonnet`→`terra`, `haiku`→`luna` (and the
-reverse under claude: `sol`→`opus`, `terra`→`sonnet`, `luna`→`haiku`).
-Write configs in either vocabulary; the active harness gets its own family.
+A config value may be any of four things, resolved in this order:
 
-**Older GPT generations** (gpt-5.5, gpt-5.4, gpt-5.5-codex, …): set the
-explicit id per role — any `gpt-*` id passes through unchanged under the
-codex harness. Under claude, a `gpt-*` id can't dispatch, so routing falls
-back to that role's default (with a warning). Tier translation only applies
-to the named trio; explicit ids are taken literally.
-Model availability still varies by account — calibrate's probe rule stands.
+1. **A tier name** (`flagship`/`workhorse`/`fast`) → the active harness's
+   current model for that tier. The shipped defaults use these, which is why a
+   new model release needs no edit anywhere.
+2. **A name native to the active harness** → used verbatim.
+3. **A name from another harness** → translated BY TIER (`opus`→`sol` under
+   codex; `terra`→`sonnet` under claude). Write configs in either vocabulary.
+4. **Any id matching the harness's `id_patterns`** → passed through verbatim.
+   `claude-*`, `opus*`, `sonnet*`, `haiku*`, `fable*` under claude; `gpt-*`,
+   `o[0-9]*`, `codex*`, `sol*`, `terra*`, `luna*` under codex. This covers both
+   **older generations** (`gpt-5.5`, `gpt-5.4-codex`) and **unreleased ones**
+   (`claude-opus-6`, `gpt-7`) with zero plugin change.
+
+A value that matches only ANOTHER harness's patterns can't dispatch here, so
+routing falls back to that role's default with a warning. An unrecognized value
+does the same. Both are visible in `--dump`'s SOURCE column as
+`defaults(harness-fallback)`.
+
+**A whole new family** (a third harness, a renamed tier) goes in
+`$SMITHY_HOME/models.json`, which deep-merges over the plugin registry — again
+no plugin edit.
+
+The registry validates SYNTAX only. **Availability still varies by account, so
+calibrate's dispatch probe is what proves a model works** — that split is what
+makes the permissive patterns safe.
 
 ## Subagent dispatch
 
@@ -56,8 +77,10 @@ envelopes, statuses, file handoffs, retry/escalation, persona overlays.
 - **Skills are not auto-routed.** AGENTS.md (repo root) carries the digest;
   read `skills/using-smithy/SKILL.md` at session start, then read each
   skill's SKILL.md when its trigger fires — same files, manual loading.
-- **Scripts all work** (bash + git + python3): ledger, routing, envelope,
-  review-package, worktree, stack-detect, init-memory are harness-neutral.
+- **Scripts all work** (bash + git + python3): paths, config, ledger, routing,
+  envelope, review-package, worktree, stack-detect, init-memory are
+  harness-neutral. `paths.sh mem` is the first thing to run in any session —
+  memory need not be inside the repo.
 - **Sandbox limits** (Codex app/cloud): detached HEAD or managed worktrees
   can block branch/push. Detect before branching:
   `git rev-parse --git-dir` vs `--git-common-dir` differing → linked

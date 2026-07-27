@@ -17,10 +17,10 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> suite ST
    Show the result. If `stack=unknown` or it contradicts the repo, confirm
    with the user before proceeding.
 
-2. **Select the suites.** Read `testing.skip` from the effective config
-   (`routing.sh` handles routing only — read `docs/smithy/config.json`
-   directly for `testing`, falling back to
-   `${CLAUDE_PLUGIN_ROOT}/defaults/config.json`). Then AskUserQuestion
+2. **Select the suites.** Read `testing.skip` from the effective config:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get testing.skip` — it merges
+   all three layers (defaults → global → project), so never read a config file
+   directly or you will miss the user's global default. Then AskUserQuestion
    (multiSelect) with the remaining suites, defaults pre-picked:
    - ring-test — always suggested
    - wield — always suggested
@@ -33,7 +33,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append temper <slug> suite ST
    A FAIL does not abort the remaining suites (full information first) —
    EXCEPT: skip proof if wield found a Critical (don't load-test a broken app).
 
-4. **Consolidate** into `docs/smithy/jobs/<slug>/reports/temper-summary.md`:
+4. **Consolidate** into `$SMITHY_MEM/jobs/<slug>/reports/temper-summary.md`:
 
    ```markdown
    # Temper Summary — <job> — <date>

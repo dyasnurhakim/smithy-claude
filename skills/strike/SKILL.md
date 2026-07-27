@@ -15,8 +15,10 @@ CEREMONY — assay's spec, blueprint's decomposition + persona pass, forge's
 per-task review loop and TDD selection — never the subagent rules.
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`
-first (read-once rule applies). If `docs/smithy/` is missing, run
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/init-memory.sh`.
+first (read-once rule applies).
+Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
+every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
+does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
 Job slug: `strike-<YYYY-MM-DD>` (or the active job when fixing its findings).
 Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> strike STARTED -`
 
@@ -35,7 +37,7 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> strike ST
    the approach in one line, and a concrete verify command. An item whose
    cause you'd have to investigate is not strike material — name it and
    route it to anneal. Write the mini-plan to
-   `docs/smithy/jobs/<slug>/plan.md`:
+   `$SMITHY_MEM/jobs/<slug>/plan.md`:
 
    ```markdown
    # Strike Plan — <date>

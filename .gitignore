@@ -5,5 +5,10 @@
 .idea/
 .vscode/
 
+# python bytecode (scripts/lib/)
+__pycache__/
+*.pyc
+
 # scratch/test fixtures (created during development verification)
 /tmp/
+/build/

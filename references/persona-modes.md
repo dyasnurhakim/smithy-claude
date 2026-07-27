@@ -1,7 +1,7 @@
 # Persona Modes — how each agent type consumes a persona overlay
 
 Personas live at `${CLAUDE_PLUGIN_ROOT}/references/personas/` (masters +
-patrons) and `docs/smithy/personas/` (project personas from commission).
+patrons) and `$SMITHY_MEM/personas/` (project personas from commission).
 The same persona file means something different depending on WHO reads it.
 A brief's `## Persona` section names the overlay file(s); the agent adopts
 them per its mode below. Persona constraints are REQUIREMENTS, not

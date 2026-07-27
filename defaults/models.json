@@ -1,0 +1,57 @@
+{
+  "//": "Model registry — DATA, not code. Adding a model or a whole harness family",
+  "//1": "must never require editing a script. Three layers of future-proofing:",
+  "//2": "  1. `tiers` names are valid config values and never change with releases.",
+  "//3": "  2. `id_patterns` accept unknown ids verbatim (claude-opus-6, gpt-6, ...).",
+  "//4": "  3. $SMITHY_HOME/models.json merges OVER this file (add families locally).",
+  "//5": "This file validates SYNTAX only. Availability is proved by calibrate's",
+  "//6": "dispatch probe — that split is what makes the permissive patterns safe.",
+
+  "schema": 1,
+  "tiers": ["flagship", "workhorse", "fast"],
+  "efforts": ["low", "medium", "high", "max"],
+
+  "harnesses": {
+    "claude": {
+      "models": {
+        "fable":  "flagship",
+        "opus":   "flagship",
+        "sonnet": "workhorse",
+        "haiku":  "fast"
+      },
+      "tier_default": {
+        "flagship": "opus",
+        "workhorse": "sonnet",
+        "fast": "haiku"
+      },
+      "id_patterns": [
+        "claude-*",
+        "fable*",
+        "opus*",
+        "sonnet*",
+        "haiku*"
+      ]
+    },
+
+    "codex": {
+      "models": {
+        "sol":   "flagship",
+        "terra": "workhorse",
+        "luna":  "fast"
+      },
+      "tier_default": {
+        "flagship": "sol",
+        "workhorse": "terra",
+        "fast": "luna"
+      },
+      "id_patterns": [
+        "gpt-*",
+        "o[0-9]*",
+        "codex*",
+        "sol*",
+        "terra*",
+        "luna*"
+      ]
+    }
+  }
+}

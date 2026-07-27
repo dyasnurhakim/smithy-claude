@@ -9,7 +9,7 @@
 ## CPU profiling
 
 ```
-python3 -m cProfile -o docs/smithy/jobs/<slug>/reports/perf/profile.out <entry.py>
+python3 -m cProfile -o $SMITHY_MEM/jobs/<slug>/reports/perf/profile.out <entry.py>
 python3 -c "import pstats; pstats.Stats('...profile.out').sort_stats('cumulative').print_stats(15)"
 ```
 Hot spots = top functions by cumulative and by tottime (report both views).
