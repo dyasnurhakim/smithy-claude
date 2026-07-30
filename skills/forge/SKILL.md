@@ -14,9 +14,10 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> loop STAR
 
 1. Verify preconditions (plan, briefs, base sha, clean tree)
 2. Read ledger; compute resume position
-3. Choose implementation mode (TDD vs plain) per config
+3. Choose implementation mode (TDD vs plain) + resolve the three dials per config
 4. Per task: dispatch → handle status → review → verdict → log
-5. All tasks DONE + APPROVED; STATE.md updated; hand off to temper
+5. Parallel batches only: land the integration branch, then merge every lane
+6. All tasks DONE + APPROVED; STATE.md updated; hand off to temper
 
 ## Preconditions — check all four before any dispatch
 
@@ -30,6 +31,9 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> loop STAR
   The orchestrator grants it at the plan gate; running forge standalone, ask
   the user ("authorize this plan's task commits?") and on yes run
   `guard.sh grant <slug>`. Without it the guard hook blocks agent commits.
+  **Exception:** in TDD `local` mode (`implementation.tdd_commits` = `local`)
+  nothing commits, so no grant is needed — do not ask for one you will not
+  use. Every other precondition still applies.
 
 ## Resume rule
 
@@ -53,6 +57,21 @@ config file directly or you will miss the user's global default:
   behavior-specifiable work and all bug fixes; plain forge for exploratory/
   visual/mechanical work. Mixed plans may choose per-task — say which tasks
   you'd route where and why.
+
+Then read the three dials that shape the loop (same `config.sh get` rule —
+all three merge across the layers, so never read a config file directly):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd_level      # minimal|balanced|max
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd_commits    # git|local
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.max_fix_cycles # int, default 2
+```
+
+`tdd_level` and `tdd_commits` become brief lines (verbatim from
+`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §4b); `max_fix_cycles` is YOUR
+budget in step 6. State the resolved trio once, in one line, before the first
+dispatch — the user should never discover mid-job that `local` mode meant
+nothing got committed.
 
 Record the choice in `$SMITHY_MEM/decisions.md` (≤3 lines).
 
@@ -93,9 +112,11 @@ Record the choice in `$SMITHY_MEM/decisions.md` (≤3 lines).
    - Both APPROVED → `ledger.sh append inspect <slug> task-N APPROVED <review-report>`;
      update STATE.md (task N done, next task named); next task.
    - Any REJECTED → re-dispatch the implementation agent with the review
-     report path added to the brief context. **Max 2 fix cycles per task**,
-     then STOP: present both report paths to the user with your read on why
-     it's stuck (bad brief? wrong approach? agent capability?).
+     report path added to the brief context. **The budget is
+     `implementation.max_fix_cycles` per task** (default 2; `0` means escalate
+     on the first REJECTED without auto-fixing). When it is spent, STOP:
+     present both report paths to the user with your read on why it's stuck
+     (bad brief? wrong approach? agent capability?).
 
 ## Red flags — these thoughts mean STOP
 
@@ -103,7 +124,8 @@ Record the choice in `$SMITHY_MEM/decisions.md` (≤3 lines).
 |---|---|
 | "The task is tiny, I'll implement it inline myself" | Inline work skips the brief, the report, and the review. Dispatch it — that's the audit trail. |
 | "The report says DONE, reviews are slowing us down" | The planted-violation test exists because DONE has been a lie before. Review every task. |
-| "Two rejections — one more cycle will fix it" | Two cycles is the budget. The third is the user's call, not yours. |
+| "One more fix cycle will surely do it" | `max_fix_cycles` is the budget. The next one is the user's call, not yours. |
+| "The batch landed, I'll merge the lanes later" | Later is after compaction, when nobody remembers which lanes existed. Merge (or abandon) at batch end, every time. |
 | "The concern is minor, I'll note it later" | Untriaged concerns are how DONE_WITH_CONCERNS becomes silently DONE. Triage now. |
 | "I'll answer NEEDS_CONTEXT with my best guess" | The agent refused to guess — don't guess on its behalf. Derive from spec/plan or ask. |
 | "The tree is only a little dirty" | Any dirt contaminates the task's atomic commit and its review diff. Clean or ask. |
@@ -130,10 +152,17 @@ in isolated worktrees — but parallel is the user's choice, never automatic:
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh integrate <slug>`
 4. **Create one worktree per task**:
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <slug> task-N`
-   → isolated checkout + branch `smithy/<slug>/task-N`. Grants carry over
-   automatically (the guard resolves them from the main worktree).
+   → isolated checkout + branch `smithy/<slug>/task-N`, **plus a state lane
+   `<slug>-task-N`** so the task's ledger/STATE writes cannot collide with
+   its siblings'. The lane is automatic: the script drops a `.smithy-lane`
+   marker in the checkout, and any smithy script run inside resolves it with
+   no help from the agent. Grants carry over automatically (the guard
+   resolves them from the main worktree).
    All worktrees and branches are LOCAL — nothing is pushed to origin
    unless the user explicitly asks (and each push needs its own yes).
+   Confirm the lanes opened before dispatching:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh list` — a task whose lane is
+   missing will write to the shared ledger and interleave with the others.
 5. **Dispatch ALL batch agents in a SINGLE message** (parallel Agent calls,
    forger or jigsmith per the TDD mode). Each prompt additionally names its
    worktree path with: "Work ONLY inside <worktree-path> — it is your
@@ -146,7 +175,7 @@ in isolated worktrees — but parallel is the user's choice, never automatic:
    - review the BRANCH before absorbing:
      `review-package.sh build <brief> <pkg> <impl-report> smithy/<slug>/task-N`
      → inspector per `/smithy:inspect`; fix cycles re-dispatch INTO the same
-     worktree (max 2, as always);
+     worktree (the `max_fix_cycles` budget, as always);
    - APPROVED → `worktree.sh absorb <slug> task-N` (merges into the
      INTEGRATION branch), then `worktree.sh remove <worktree-path> --force`
      (safe: the branch is merged; only disposable scratch remains).
@@ -162,13 +191,25 @@ in isolated worktrees — but parallel is the user's choice, never automatic:
    branch drifted): the script aborts the merge cleanly. STOP, tell the
    user which files collided, fix the plan's batch marking, and re-run the
    conflicting task sequentially on top of what landed.
-10. **Cleanup is not optional**: at batch end — success OR failure —
+10. **Combine the state — after landing, before cleanup.** Each parallel task
+    logged into its own lane; the project ledger has seen none of it yet.
+    Fold them in, in plan order so the merged history reads in task order:
+    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh merge <slug>-task-N` per task
+    (or `lane.sh merge-all` once the whole batch has landed). Events merge by
+    timestamp, so the result is the same log a sequential run would have
+    produced. A task whose work was ROLLED BACK gets
+    `lane.sh abandon <slug>-task-N` instead — its events must not enter the
+    ledger, because the ledger is what the next session trusts over its own
+    recollection. Then rewrite STATE.md yourself: `lane.sh merge` refreshes
+    only the `Last event` line and deliberately leaves Phase/Next step alone.
+    Verify nothing is left: `lane.sh list` must show no active lanes.
+11. **Cleanup is not optional**: at batch end — success OR failure —
     `worktree.sh clean <slug>` removes every smithy-created worktree,
     integration included (committed work survives on branches; the script
     refuses unmerged branch deletion). **Exception:** a worktree the USER
     created or named is never auto-removed (the script refuses unmarked
     worktrees) — ask: auto-clear it or leave it?
-11. Ledger lines per task as usual; per batch:
+12. Ledger lines per task as usual; per batch:
     `ledger.sh append forge <slug> batch-X DONE -` after landing.
 
 Parallelism budget: one batch at a time, ≤4 worktrees. Never parallelize
@@ -215,7 +256,8 @@ consolidated report directly — same filename, one task row.
 
 Every task has DONE + APPROVED ledger lines; ONE forge-report.md exists and
 the per-task scratch is gone; no smithy worktrees remain (`worktree.sh list`
-shows only the main worktree — plus any user worktrees, untouched). Update
-STATE.md (phase FORGE complete, next step: temper).
+shows only the main worktree — plus any user worktrees, untouched); no active
+state lanes remain (`lane.sh list` — every one merged or explicitly
+abandoned). Update STATE.md (phase FORGE complete, next step: temper).
 
 Handoff: "All N tasks forged and approved — report at `reports/forge-report.md`; run `/smithy:temper` for the test pass."

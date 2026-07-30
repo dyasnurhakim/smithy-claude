@@ -49,7 +49,8 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
 ## Working on smithy itself
 
 Bash tests: `tests/guard-matrix.sh`, `tests/worktree-matrix.sh`,
-`tests/routing-matrix.sh`, `tests/paths-matrix.sh` — all must stay green.
+`tests/routing-matrix.sh`, `tests/paths-matrix.sh`, `tests/lane-matrix.sh` —
+all must stay green.
 `scripts/paths.sh` is sourced by the PreToolUse guard hook, so it must stay pure
 bash for resolution rules 1-4 (no interpreter spawn) and must never enable
 `errexit` when sourced.

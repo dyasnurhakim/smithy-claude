@@ -76,6 +76,11 @@ printf '{"smithy_config_version":1,"harness":"codex","routing":{"review":{"model
 t "invalid model name rejected at entry" "model=sol"   bash $S/routing.sh review
 printf '{"smithy_config_version":1,"routing":{"review":{"model":"opus","effort":"turbo"}}}' > $PC
 t "invalid effort falls back to default" "effort=high" bash $S/routing.sh review
+printf '{"smithy_config_version":1,"routing":{"review":{"model":"opus","effort":"xhigh"}}}' > $PC
+t "xhigh is a valid effort"              "effort=xhigh" bash $S/routing.sh review
+printf '{"smithy_config_version":1,"routing":{"review":{"model":"opus","effort":"max"}}}' > $PC
+t "max is still a valid effort"          "effort=max"   bash $S/routing.sh review
+g "--models lists xhigh"                 "xhigh"        bash $S/routing.sh --models
 printf '{"smithy_config_version":1,"routing":{"review":{"model":"inherit","effort":"high"}}}' > $PC
 t "inherit passes through untouched"     "model=inherit" bash $S/routing.sh review
 

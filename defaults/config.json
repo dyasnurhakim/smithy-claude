@@ -7,6 +7,11 @@
   "//5": "tier to the current model per harness. Concrete names still work here.",
   "//6": "`memory.location` is GLOBAL-ONLY (a project config cannot say where the",
   "//7": "project config lives) — set it in $SMITHY_HOME/config.json; unset = ask.",
+  "//8": "`implementation`: tdd = which agent forge dispatches (ask|always|never);",
+  "//9": "tdd_level = how thorough the jigsmith's tests are (minimal|balanced|max);",
+  "//10": "tdd_commits = git (commit per RED/GREEN stage) | local (no commits, the",
+  "//11": "report carries the evidence); max_fix_cycles = controller review->fix",
+  "//12": "re-dispatches per task before escalating (applies to forger AND jigsmith).",
 
   "smithy_config_version": 1,
   "routing": {
@@ -23,7 +28,10 @@
     "auto_fix_review_findings": false
   },
   "implementation": {
-    "tdd": "ask"
+    "tdd": "ask",
+    "tdd_level": "balanced",
+    "tdd_commits": "git",
+    "max_fix_cycles": 2
   },
   "review_panel": "auto",
   "testing": {

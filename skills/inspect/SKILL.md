@@ -57,9 +57,18 @@ Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append inspect <slug> <unit> 
   approved plan is a note, not a REJECTED.
 - REJECTED (quality) requires at least one Critical or High finding.
 - TDD-mode diffs (jigsmith): the inspector additionally verifies RED→GREEN
-  commit ordering per requirement from the package's commit list — a `feat:`
-  commit with no preceding `test:` commit for its requirement is a High
-  finding (process evidence missing), whatever the code looks like.
+  ordering per requirement. How, depends on `implementation.tdd_commits`:
+  - `git` — from the package's commit list. A `feat:` commit with no preceding
+    `test:` commit for its requirement is a High finding (process evidence
+    missing), whatever the code looks like.
+  - `local` — nothing is committed, so the commit list is empty by design and
+    its absence is NOT a finding. Verify against the stage log at
+    `reports/raw/task-N-tdd-stages.md` instead: RED before GREEN per
+    requirement, monotonic timestamps, and every file it names actually present
+    in the diff. A stage log that is missing, non-monotonic, or names files the
+    diff does not contain is a High finding. **Say in the prompt which mode is
+    in play** — an inspector told to check commit ordering on a `local`-mode
+    task will reject every task for a violation that cannot exist.
 
 ## Evaluating the findings you receive
 

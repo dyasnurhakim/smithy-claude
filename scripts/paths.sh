@@ -14,6 +14,9 @@
 #   paths.sh global-config       $SMITHY_HOME/config.json
 #   paths.sh project-config      <mem>/config.json
 #   paths.sh registry            $SMITHY_HOME/projects.tsv
+#   paths.sh lane                active lane name ("" when none)
+#   paths.sh lane-source         which rule resolved the lane
+#   paths.sh state-dir           where MUTABLE state is written right now
 #   paths.sh set-mem <dir>       register this project's memory dir (creates it)
 #   paths.sh unset-mem           drop this project's registry entry
 #   paths.sh --dump              everything above, one key=value per line
@@ -32,6 +35,34 @@
 # The registry is TSV, not JSON, on purpose: guard.sh resolves paths on the
 # PreToolUse hook path, so rules 1-4 must be pure bash with no interpreter
 # spawn. Only rule 5 reads JSON, and SMITHY_PATHS_FAST=1 skips it.
+#
+# LANES — parallel work without a shared-state collision.
+# $SMITHY_MEM is one directory per PROJECT, anchored on the MAIN worktree, so
+# two concurrent pipelines (or the tasks of one parallel forge batch) would
+# otherwise append to the same ledger.md and overwrite the same STATE.md. A
+# lane namespaces exactly the MUTABLE files under $SMITHY_MEM/lanes/<name>/;
+# scripts/lane.sh merges them back when the work lands.
+#
+# Lane resolution — FIRST MATCH WINS:
+#   1 env:SMITHY_LANE          explicit per-session/per-dispatch override
+#   2 marker:.smithy-lane      one-line file at THIS worktree's root — which is
+#                              why an agent working inside a worktree created by
+#                              worktree.sh lands in the right lane with no
+#                              cooperation of its own
+#   3 none                     state-dir == $SMITHY_MEM (normal serial work)
+#
+# Lane names are restricted to [A-Za-z0-9._-] with no leading dot and no "..":
+# the name becomes a path segment, so an unvalidated one would escape $SMITHY_MEM.
+# An invalid name is IGNORED (falls back to no lane) rather than being sanitised
+# into a different lane — silently writing state somewhere the caller did not
+# ask for is worse than writing it to the shared root.
+#
+# What is lane-scoped vs project-wide:
+#   lane-scoped   STATE.md, ledger.md, decisions.md   (mutable, per-unit)
+#   project-wide  config.json, jobs/, personas/, DESIGN.md, guard tokens
+# Config is deliberately NOT lane-scoped — a lane is a unit of work, not a
+# different set of preferences, and jobs/ holds append-only artifacts whose
+# filenames already carry the job slug.
 
 # Sourced or executed? Never enable errexit when sourced — guard.sh relies on
 # failing greps not killing the shell.
@@ -163,7 +194,46 @@ smithy_resolve_mem() { # sets SMITHY_MEM + SMITHY_MEM_SOURCE
   esac
 }
 
+_smithy_lane_ok() { # a lane name must be safe to use as ONE path segment
+  case "$1" in
+    "" | .* | */* | *..*)  return 1 ;;
+    *[!A-Za-z0-9._-]*)     return 1 ;;
+  esac
+  return 0
+}
+
+smithy_resolve_lane() { # sets SMITHY_LANE, SMITHY_LANE_SOURCE, SMITHY_STATE_DIR
+  local raw="" src="none" line
+  SMITHY_LANE_WARN=""
+
+  # 1 — explicit env override (how a dispatcher pins one agent to one lane)
+  if [ -n "${SMITHY_LANE:-}" ]; then
+    raw="$SMITHY_LANE"; src="env:SMITHY_LANE"
+
+  # 2 — marker at THIS worktree's root (not the main one: the whole point is
+  #     that each linked worktree answers differently)
+  elif [ -f "$SMITHY_ROOT/.smithy-lane" ]; then
+    line="$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$SMITHY_ROOT/.smithy-lane" 2>/dev/null | head -1)"
+    line="$(_smithy_trim "${line%$'\r'}")"
+    if [ -n "$line" ]; then raw="$line"; src="marker:.smithy-lane"; fi
+  fi
+
+  if [ -n "$raw" ] && ! _smithy_lane_ok "$raw"; then
+    SMITHY_LANE_WARN="ignoring invalid lane name '$raw' (from $src); using the shared state dir"
+    raw=""; src="none"
+  fi
+
+  SMITHY_LANE="$raw"
+  SMITHY_LANE_SOURCE="$src"
+  if [ -n "$raw" ]; then
+    SMITHY_STATE_DIR="$SMITHY_MEM/lanes/$raw"
+  else
+    SMITHY_STATE_DIR="$SMITHY_MEM"
+  fi
+}
+
 smithy_resolve_mem
+smithy_resolve_lane
 
 # `unset:ask` means the location is UNDECIDED — SMITHY_MEM is provisional and
 # init-memory.sh refuses to create there until the user picks. Anything that
@@ -202,6 +272,9 @@ case "${1:-}" in
   global-config)  echo "$SMITHY_GLOBAL_CONFIG" ;;
   project-config) echo "$SMITHY_PROJECT_CONFIG" ;;
   registry)       echo "$SMITHY_REGISTRY" ;;
+  lane)           echo "$SMITHY_LANE" ;;
+  lane-source)    echo "$SMITHY_LANE_SOURCE" ;;
+  state-dir)      echo "$SMITHY_STATE_DIR" ;;
   set-mem)
     [ $# -eq 2 ] || { echo "usage: paths.sh set-mem <dir>" >&2; exit 2; }
     target="$(_smithy_expand "$2" "$SMITHY_MAIN_ROOT")"
@@ -224,15 +297,23 @@ case "${1:-}" in
     printf 'mem=%s\n'            "$SMITHY_MEM"
     printf 'mem_source=%s\n'     "$SMITHY_MEM_SOURCE"
     printf 'mem_exists=%s\n'     "$([ -d "$SMITHY_MEM" ] && echo yes || echo no)"
+    printf 'lane=%s\n'           "${SMITHY_LANE:-}"
+    printf 'lane_source=%s\n'    "$SMITHY_LANE_SOURCE"
+    printf 'state_dir=%s\n'      "$SMITHY_STATE_DIR"
+    # `&& printf` alone would make --dump exit 1 whenever there is no warning
+    [ -n "${SMITHY_LANE_WARN:-}" ] && printf 'lane_warning=%s\n' "$SMITHY_LANE_WARN"
+    true
     printf 'global_config=%s\n'  "$SMITHY_GLOBAL_CONFIG"
     printf 'project_config=%s\n' "$SMITHY_PROJECT_CONFIG"
     printf 'defaults=%s\n'       "$SMITHY_DEFAULTS"
     ;;
   -h|--help)
-    sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # Print the whole leading comment block — a line range would silently
+    # truncate every time this header grows.
+    awk 'NR==1 {next} /^#/ {sub(/^# ?/, ""); print; next} {exit}' "${BASH_SOURCE[0]}"
     ;;
   "")
-    echo "usage: paths.sh mem|mem-source|home|root|main-root|slug|registry|set-mem <dir>|unset-mem|--dump" >&2
+    echo "usage: paths.sh mem|mem-source|home|root|main-root|slug|registry|lane|lane-source|state-dir|set-mem <dir>|unset-mem|--dump" >&2
     exit 2 ;;
   *)
     echo "paths.sh: unknown command '$1' (try --help)" >&2; exit 2 ;;

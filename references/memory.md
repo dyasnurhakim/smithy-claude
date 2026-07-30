@@ -58,6 +58,8 @@ $SMITHY_MEM/
 ├── decisions.md      # append-only decision log, ≤3 lines per entry
 ├── DESIGN.md         # design source of truth, when /smithy:pattern has run
 ├── personas/         # test personas, when /smithy:commission has run
+├── lanes/<name>/     # per-lane STATE.md + ledger.md + decisions.md (see § Lanes)
+│   └── .merged/      # lanes already folded back in, kept for audit
 └── jobs/<slug>/      # one dir per work item, slug = kebab-case feature name
     ├── spec.md              # assay output
     ├── plan.md              # blueprint output
@@ -70,6 +72,63 @@ $SMITHY_MEM/
 
 Guard tokens (`.git-grant`, `.push-once`, `.destructive-once`) also live here and
 are gitignored when memory is in-repo.
+
+## Lanes — parallel work without a shared-state collision
+
+`$SMITHY_MEM` is one directory per PROJECT, anchored on the MAIN worktree. That
+is deliberate — a ledger that silently splits per worktree is worse than one
+that is shared — but it means two concurrent units of work would append to the
+same `ledger.md` and overwrite the same single-`Active job` `STATE.md`.
+
+A **lane** namespaces exactly the mutable files:
+
+| Lane-scoped (per unit) | Project-wide (never lane-scoped) |
+|---|---|
+| `STATE.md`, `ledger.md`, `decisions.md` | `config.json`, `jobs/`, `personas/`, `DESIGN.md`, guard tokens |
+
+Config is not lane-scoped because a lane is a unit of work, not a different set
+of preferences. Guard tokens are not, because authorization belongs to the user
+and the project — a lane must never be able to mint itself a commit grant.
+
+Resolution, first match wins (pure bash, so the guard hook stays fast):
+
+| # | Rule | Set by |
+|---|---|---|
+| 1 | `$SMITHY_LANE` env var | a dispatcher pinning one agent to one lane |
+| 2 | `<this worktree>/.smithy-lane` marker | `worktree.sh create`, automatically |
+| 3 | none → state dir is `$SMITHY_MEM` | ordinary serial work |
+
+Lane names are `[A-Za-z0-9._-]`, no leading dot, no `..` — the name becomes a
+path segment. An invalid one is IGNORED (falls back to the shared dir), never
+sanitised into a different lane.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh start <name> [--worktree <path>] [--job <slug>]
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh list | current | status
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh merge <name>      # fold into the project state
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh merge-all         # after a whole batch lands
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh abandon <name>    # rolled-back work
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh where           # which file am I appending to?
+```
+
+**Reads are always merged, writes never are.** Inside a lane, `ledger.sh tail`
+returns the lane's events merged over the project's in timestamp order — so a
+controller resuming after compaction sees the whole history, not just its own
+slice, and reaches the same resume decision it would have reached serially.
+Appends still go only to the lane.
+
+**Merging** is a timestamp-stable union: the ledger is append-only with a
+leading ISO timestamp, so combining lanes is a sort, not a three-way merge —
+no conflicts, no lost events, and each lane's internal order is preserved
+within a tied minute. `merge` also appends the lane's `decisions.md`, refreshes
+the project `STATE.md`'s `Last event` line, and archives the lane under
+`lanes/.merged/`. It deliberately does NOT rewrite `Phase` or `Next step` —
+those are semantic and belong to the controller.
+
+**Merge, or abandon, before the job ends.** An unmerged lane is work the next
+session cannot see, and the recovery rule below tells it to trust the ledger
+over recollection. `worktree.sh remove` reports unmerged lanes rather than
+merging them, because a removed checkout is disposable and an event log is not.
 
 ## Config layers
 
@@ -88,6 +147,16 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get    implementation.tdd
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh source implementation.tdd   # -> defaults|global|project
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh --dump                     # routing table + layers
 ```
+
+Keys the pipeline reads most often:
+
+| Key | Values | Read by |
+|---|---|---|
+| `implementation.tdd` | ask \| always \| never | forge step 0 |
+| `implementation.tdd_level` | minimal \| balanced \| max | forge, jig → the brief |
+| `implementation.tdd_commits` | git \| local | forge (grant precondition), jig (evidence check) |
+| `implementation.max_fix_cycles` | int (default 2) | forge step 6, dispatch.md §6 |
+| `gates.*`, `testing.skip`, `review_panel` | see `/smithy:calibrate` | smithy, temper, guild |
 
 `/smithy:calibrate` is the only sanctioned writer of the global and project
 layers. Both stay SPARSE — they hold only what differs from the layer below.
@@ -124,7 +193,7 @@ memory dir does not invalidate history.
 | every skill, step 1 | STATE.md, `ledger.sh tail` | one `STARTED` ledger line |
 | assay | — | `jobs/<slug>/spec.md`, decisions.md (resolved ambiguities), STATE.md |
 | blueprint | spec.md | plan.md, briefs/task-*.md, decisions.md, STATE.md |
-| forge / jig | plan.md, briefs, config `implementation.tdd` | ledger per task, STATE.md, decisions.md (TDD choice) (agent writes reports/) |
+| forge / jig | plan.md, briefs, config `implementation.*` | ledger per task, STATE.md, decisions.md (TDD choice), lane merges after a parallel batch (agent writes reports/) |
 | inspect | brief + review package | ledger verdict, controller notes appended to review report (agent writes reports/) |
 | anneal | failing report/context | decisions.md (fix decision), ledger (agent writes rca) |
 | test skills + temper | plan.md, stack-detect output | reports/test-*.md, temper-summary.md, ledger |
@@ -143,6 +212,11 @@ memory dir does not invalidate history.
 Conversation memory does not survive compaction or session death.
 **Trust STATE.md, the ledger, and `git log` over your own recollection.**
 On resume: re-export `$SMITHY_MEM` → read STATE.md → confirm with
-`ledger.sh tail` → cross-check `git log --oneline <base>..HEAD` → resume at the
-first unit that has no `DONE`/`APPROVED` ledger line. Units marked complete are
-never re-dispatched.
+`ledger.sh tail` → **check `lane.sh list` for unmerged lanes** → cross-check
+`git log --oneline <base>..HEAD` → resume at the first unit that has no
+`DONE`/`APPROVED` ledger line. Units marked complete are never re-dispatched.
+
+An unmerged lane means a previous session died mid-batch. Its events are NOT
+in the project ledger, so the tail alone will under-report progress — read the
+lane's own ledger (`SMITHY_LANE=<name> ledger.sh tail`) before concluding a
+task never ran, then merge or abandon it based on whether its branch landed.

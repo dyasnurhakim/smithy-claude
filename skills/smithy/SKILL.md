@@ -86,6 +86,36 @@ acceptance recorded in decisions.md.
    Cross-check `git log --oneline <base>..HEAD` when a base sha exists, and
    scan the job's `reports/` dir for artifacts the ledger missed (a crashed
    session may have produced work it never logged).
+4. **Check for unmerged state lanes:**
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh list`. Any active lane means a
+   previous parallel batch never finished folding its events back in — those
+   events are missing from the ledger you just read, so the resume position
+   above is under-reporting. Read the lane
+   (`SMITHY_LANE=<name> ledger.sh tail`), then merge it if its branch landed
+   or abandon it if the work was rolled back, BEFORE computing where to
+   resume. See `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Lanes.
+
+## Running two pipelines at once
+
+A second pipeline in the same repo is safe when — and only when — it gets its
+own workspace AND its own lane. The worktree isolates the code; the lane
+isolates `STATE.md`/`ledger.md`/`decisions.md`, which are otherwise
+single-writer (STATE.md holds ONE `Active job:` line, so two pipelines would
+overwrite each other's position every phase boundary).
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <job-b> pipeline   # checkout + lane, in one step
+```
+
+Then run the second pipeline from inside that checkout: the `.smithy-lane`
+marker makes every smithy script there resolve the lane automatically. Both
+pipelines keep reading the shared project history (reads are merged), while
+their writes stay apart. When the second job lands, `lane.sh merge <job-b>-pipeline`
+folds its events into the project ledger in timestamp order.
+
+Do NOT start a second pipeline in the SAME checkout, whatever the isolation of
+the jobs themselves — one working tree cannot hold two atomic task commits, and
+`git status` cleanliness is a precondition both pipelines depend on.
 
 ## Gates
 

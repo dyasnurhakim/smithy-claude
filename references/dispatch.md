@@ -44,6 +44,7 @@ names the file(s); the agent adapts per its mode.
 | low | "Effort: LOW. Be brief and mechanical. No exploration beyond the brief." |
 | medium | "Effort: MEDIUM. Think through edge cases before acting." |
 | high | "Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one." |
+| xhigh | "Effort: XHIGH. Think very hard. Explore the solution space broadly before narrowing, and justify the paths you did not take." |
 | max | "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing." |
 
 ## 2. Hand over files, not text
@@ -120,13 +121,47 @@ never assume it means DONE.
 
 When `implementation.tdd` resolves to TDD for a task (see `/smithy:jig`):
 - The brief gains: `TDD mode: write the failing test FIRST for each
-  requirement (RED), then the minimal implementation (GREEN), commit per stage.`
+  requirement (RED), then the minimal implementation (GREEN).`
 - The jigsmith's report adds a **TDD evidence** section: per requirement,
-  verbatim RED output, verbatim GREEN output, and the stage commits.
-- The controller verifies commit ordering from `git log <base>..HEAD`
-  (`test:` before `feat:`/`fix:` per requirement) — evidence, not trust.
+  verbatim RED output, verbatim GREEN output, and the stage evidence.
 - NEEDS_CONTEXT on an untestable requirement is a brief defect: fix the brief
   (blueprint) rather than pressuring the agent to implement without a jig.
+
+Three config keys shape HOW the loop runs. Read all three through
+`config.sh get` (never a raw config file — that misses the global layer):
+
+| Key | Values | Effect on the brief |
+|---|---|---|
+| `implementation.tdd_level` | `minimal` \| `balanced` \| `max` | how many tests each requirement earns |
+| `implementation.tdd_commits` | `git` \| `local` | whether each stage is committed |
+| `implementation.max_fix_cycles` | int (default 2) | controller review→fix budget, §6 |
+
+**`tdd_level`** — append the matching line to the brief. The loop ordering
+never changes; only the breadth of what RED covers:
+
+| level | brief line |
+|---|---|
+| minimal | "TDD level: MINIMAL. One test per requirement — the primary behaviour, plus the single failure mode that would most likely ship a bug. Do not enumerate edge cases; the bar is 'the software demonstrably works'." |
+| balanced | "TDD level: BALANCED. One test per requirement's primary behaviour, plus its realistic edge cases and error paths. Skip combinatorial permutations." |
+| max | "TDD level: MAX. Exhaustive: primary behaviour, boundaries, error paths, invariants, and adversarial cases (persona hunt-lists become RED cases). Prefer more small tests over fewer broad ones." |
+
+**`tdd_commits`** — this one changes what counts as EVIDENCE, so the
+controller's verification step changes with it:
+
+| value | brief line | how the controller verifies ordering |
+|---|---|---|
+| git | "TDD commits: GIT. Commit each stage — `test:` at RED, `feat:`/`fix:` at GREEN, `refactor:` if you refactor." | `git log --oneline <base>..HEAD` — `test:` precedes its `feat:`/`fix:` per requirement. Machine-checkable, independent of the agent's own account. |
+| local | "TDD commits: LOCAL. Do NOT commit. Leave every change in the working tree, and record each stage in the stage log named in your Report section." | Read the stage log + the report's verbatim RED/GREEN blocks, and diff the working tree. |
+
+`local` is the right choice when the user does not want stage commits in the
+history, when no commit grant exists, or inside a scratch worktree that will be
+squashed anyway. **Be honest about its cost:** `git log` ordering is the only
+TDD evidence the controller does not have to take on trust, and `local` removes
+it — the inspector is then reviewing the agent's own account of itself. Default
+to `git`; when a user picks `local`, say this once and move on.
+In `local` mode forge's commit-grant precondition does not apply (nothing
+commits), and the stage log lives at
+`$SMITHY_MEM/jobs/<slug>/reports/raw/task-N-tdd-stages.md`.
 
 ## 4c. Parallel dispatch (worktree isolation)
 
@@ -143,6 +178,21 @@ ask once, with the disjointness evidence). When parallel:
 - Each agent works ONLY in its worktree; reports go to the MAIN repo's
   reports dir (absolute paths). Guard grants resolve to the main worktree
   automatically.
+- **State is isolated by a LANE, automatically.** `worktree.sh create` opens a
+  state lane named `<job>-<task>` and drops a `.smithy-lane` marker in the
+  checkout, so `ledger.sh` run inside that worktree appends to
+  `$SMITHY_MEM/lanes/<job>-<task>/ledger.md` instead of the shared one. N
+  agents logging at once therefore cannot interleave the project ledger or
+  overwrite each other's STATE.md. Reads still return the lane's events
+  merged over the project's, so an agent resuming after compaction sees the
+  whole history. The agent needs to know nothing about any of this.
+- **Lanes are merged after the batch LANDS, not when a worktree is removed.**
+  `lane.sh merge <lane>` folds a lane's events into the project ledger in
+  timestamp order and appends its decisions; `lane.sh merge-all` does every
+  lane at once. Work that was rolled back gets `lane.sh abandon` instead —
+  its events never enter the ledger. `worktree.sh remove` deliberately does
+  neither: it reports the unmerged lane and leaves the choice to you, because
+  a removed checkout is disposable and a discarded event log is not.
 - Everything stays LOCAL: task/integration branches are never pushed to
   origin unless the user explicitly asks (each push = its own yes + token).
 - Review the branch (`review-package.sh build ... <branch>`) BEFORE
@@ -171,8 +221,11 @@ ask once, with the disjointness evidence). When parallel:
 ## 6. Retry and escalation
 
 - REJECTED review → re-dispatch the forger with the review report path added
-  to the brief. Maximum 2 fix cycles per unit; then escalate to the user with
-  both reports.
+  to the brief. The budget is `implementation.max_fix_cycles` per unit
+  (`bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.max_fix_cycles`;
+  default 2, applies to forger AND jigsmith alike); then escalate to the user
+  with both reports. A budget of 0 means "never auto-fix — escalate on the
+  first REJECTED".
 - NEEDS_CONTEXT twice on the same question → the question goes to the user.
 - Repeated BLOCKED → consider one model-tier bump (e.g. sonnet→opus) for the
   retry, then escalate.

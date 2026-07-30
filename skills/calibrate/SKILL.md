@@ -58,9 +58,25 @@ SPARSE — they hold only what differs from the layer below.
    - `harness`: any harness in the registry (`--models` header shows the active one).
    - `gates`: `pause_between_phases`, `auto_fix_review_findings` (true/false).
    - `testing`: `skip` ⊆ [ring-test, wield, proof, hone].
-   - `implementation`: `tdd` ∈ {ask, always, never} — controls whether forge
-     dispatches the `jigsmith` (TDD, RED→GREEN evidence) or the plain `forger`;
-     see `/smithy:jig` for the trade-off table.
+   - `implementation` — four keys, ask only about the ones selected:
+     - `tdd` ∈ {ask, always, never} — whether forge dispatches the `jigsmith`
+       (TDD, RED→GREEN evidence) or the plain `forger`; see `/smithy:jig`.
+     - `tdd_level` ∈ {minimal, balanced, max} — how thorough the jigsmith's
+       tests are. `minimal` = one test per requirement, primary behaviour plus
+       the likeliest bug ("as long as the software works"); `balanced`
+       (default) = + realistic edge and error paths; `max` = exhaustive,
+       boundaries and adversarial cases included. This is a cost/confidence
+       dial, not a quality switch — RED→GREEN ordering holds at every level.
+     - `tdd_commits` ∈ {git, local} — `git` (default) commits each RED/GREEN/
+       REFACTOR stage; `local` commits nothing and keeps a stage log instead.
+       **When a user picks `local`, tell them the cost once:** commit ordering
+       is the only TDD evidence the controller can verify independently, so
+       `local` leaves the inspector reading the agent's own account. Then
+       respect the choice — it's the right call for scratch worktrees, for
+       histories the user wants clean, and when no commit grant exists.
+     - `max_fix_cycles` — integer, default `2`: review→fix re-dispatches per
+       task before escalating. Applies to the forger too, not just TDD. `0`
+       means escalate on the first REJECTED.
    - `review_panel`: `auto | always | never` — whether the guild panel fires at
      end-of-forge (auto/always) or is skipped (never); it is the costliest
      smithy operation.

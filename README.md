@@ -143,6 +143,18 @@ Blueprint marks tasks `∥ batch-X` **only with proof of disjointness** (file se
 
 When you choose parallel: one **git worktree + branch per task** (`.smithy-wt-<repo>/` sibling dir), all agents dispatched in a single message, each branch reviewed *before* merging. Task branches merge into an **integration branch first** — the batch's combined verify commands and the test suite run there — and only a verified integration lands on your working branch (`--no-ff`). A merge conflict means the batch was mis-marked — clean abort and escalate, never hand-resolved. Everything stays **local**: no branch is pushed to origin unless you ask (each push needs its own yes). **Smithy always removes its own worktrees when the batch ends** (committed work survives on branches); worktrees *you* created are never auto-removed — it asks whether to clear or leave them.
 
+### State lanes — isolation for the *state*, not just the code
+
+A worktree isolates the code. It does not isolate smithy's own state: memory is one dir per project (anchored on the main worktree, so there is exactly one ledger), which means N parallel agents would append to one `ledger.md` and overwrite one `STATE.md` — and `STATE.md` holds a single `Active job:` line.
+
+So every worktree also gets a **lane**: its own `STATE.md` / `ledger.md` / `decisions.md` under `$SMITHY_MEM/lanes/<job>-<task>/`. `worktree.sh create` opens it and drops a `.smithy-lane` marker in the checkout, so any smithy script run there resolves the lane automatically — the dispatched agent never has to know. Config, `jobs/`, personas and guard tokens stay project-wide (a lane is a unit of work, not a different set of preferences, and must never be able to mint itself a commit grant).
+
+**Reads merge, writes don't.** Inside a lane, `ledger.sh tail` shows the lane's events merged over the project's, so a session resuming after compaction sees the whole history — while its appends stay private.
+
+**Combining is a sort, not a merge conflict.** The ledger is append-only with a leading ISO timestamp, so `lane.sh merge <lane>` (or `merge-all` once the batch has landed) folds events back in timestamp order — nothing lost, each lane's internal order preserved. Rolled-back work gets `lane.sh abandon` so its events never enter the ledger. Removing a worktree deliberately does *neither*: it reports the unmerged lane and leaves the call to you, because a checkout is disposable and an event log is not.
+
+This is also what makes **two whole pipelines in one repo** safe: give the second its own worktree (`worktree.sh create <job-b> pipeline`) and run it from there. Both read the shared history; neither can overwrite the other's position.
+
 ## Agents
 
 Agent names follow their skill's verb: the *forger* forges, the *inspector* inspects, the *annealer* anneals, the *temperer* tempers, and the *jigsmith* shapes work against a jig (tests written first).
@@ -193,9 +205,17 @@ A whole new family goes in `$SMITHY_HOME/models.json`, which deep-merges over th
 
 The registry validates syntax only — **availability varies by account, so calibrate dispatches a live probe before writing any model value.** That split is what makes permissive patterns safe.
 
-The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort maps to an injected prompt banner — prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/high` (add `--global` for all projects).
+The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort is one of `low | medium | high | xhigh | max` and maps to an injected prompt banner — prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/xhigh` (add `--global` for all projects). The ladder lives in `defaults/models.json`, so `routing.sh --models` is always the authoritative list.
 
-TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence verified from commit ordering) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
+TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
+
+Three more dials tune *how* the loop runs (all via `/smithy:calibrate`, all layered like everything else):
+
+| Key | Values | What it does |
+|---|---|---|
+| `implementation.tdd_level` | `minimal` \| **`balanced`** \| `max` | Test breadth per requirement. `minimal` = one test — primary behaviour plus the likeliest bug, i.e. *"enough that the software demonstrably works"*. `balanced` adds realistic edge and error paths. `max` is exhaustive, adversarial cases included. It cuts test **count**, never the RED→GREEN ordering. |
+| `implementation.tdd_commits` | **`git`** \| `local` | `git` commits every stage (`test:` → `feat:`). `local` commits **nothing** — changes stay in the working tree and each stage is appended to a stage log. Good for scratch worktrees, clean histories, or when no commit grant exists. The honest trade: commit ordering is the only TDD evidence the controller can verify *independently*, so `local` leaves the inspector reading the agent's own account. |
+| `implementation.max_fix_cycles` | int, default **`2`** | Review→fix re-dispatches per task before smithy stops and escalates to you. Applies to the plain forger too. `0` = escalate on the first REJECTED. |
 
 ## Personas — the guild and its patrons
 
@@ -273,7 +293,7 @@ $SMITHY_MEM/
 
 The first time smithy runs in a project it **asks** where memory should live rather than guessing; answer once and it's recorded. `--pointer` also drops a one-line file at the repo root so a fresh clone on another machine finds the same dir (the registry is per-machine). `scripts/paths.sh --dump` shows the resolved dir and which rule produced it.
 
-Linked git worktrees — including the ones smithy creates for parallel task batches — all resolve to the *main* worktree's memory, so there is exactly one ledger per project.
+Linked git worktrees — including the ones smithy creates for parallel task batches — all resolve to the *main* worktree's memory, so there is exactly one ledger per project. Concurrent work is kept apart by **state lanes** rather than by splitting the memory dir (see [State lanes](#state-lanes--isolation-for-the-state-not-just-the-code)); a lane's events are folded back into that one ledger in timestamp order when the work lands.
 
 Recovery rule baked into every skill: **trust STATE.md, the ledger, and git log over recollection.** Sessions (and compactions) can die mid-run; the pipeline resumes at the first unit without a DONE/APPROVED ledger line.
 

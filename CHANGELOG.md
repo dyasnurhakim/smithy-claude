@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.12.0 — unreleased
+
+Parallel work gets isolated state that merges back; three new TDD dials;
+an `xhigh` effort level.
+
+- **State lanes — parallel pipelines without a shared-state collision.**
+  `$SMITHY_MEM` is deliberately one dir per project anchored on the main
+  worktree, which meant concurrent units of work appended to the same
+  `ledger.md` and overwrote the same single-`Active job` `STATE.md`. New
+  `scripts/lane.sh` namespaces exactly the mutable files
+  (`STATE.md`/`ledger.md`/`decisions.md`) under `$SMITHY_MEM/lanes/<name>/`;
+  everything else (config, `jobs/`, personas, guard tokens) stays
+  project-wide — a lane is a unit of work, not a different set of
+  preferences, and must never be able to mint itself a commit grant.
+  Commands: `start`/`list`/`current`/`status`/`merge`/`merge-all`/`abandon`.
+- **Lanes resolve automatically inside a worktree.** `paths.sh` gained lane
+  resolution (`$SMITHY_LANE` env → `<worktree>/.smithy-lane` marker → none),
+  pure bash so the PreToolUse guard hook keeps its no-interpreter budget, and
+  exports `SMITHY_STATE_DIR`. `worktree.sh create` now opens a lane named
+  `<job>-<task>` and drops the marker, so a dispatched agent lands in the
+  right lane knowing nothing about lanes. Unsafe names (`../escape`, `a/b`,
+  leading dot) are IGNORED rather than sanitised — writing state somewhere
+  the caller did not ask for is worse than writing it to the shared root.
+- **Reads merge, writes don't.** Inside a lane `ledger.sh tail`/`last` return
+  the lane's events merged over the project's in timestamp order, so a
+  controller resuming after compaction sees the whole history and reaches the
+  same resume decision it would have reached serially. `ledger.sh where`
+  reports which file is being appended to.
+- **Merging is a timestamp-stable union, not a three-way merge.** The ledger
+  is append-only with a leading ISO timestamp, so `lane.sh merge` sorts —
+  no conflicts, no lost events, each lane's internal order preserved within a
+  tied minute. It also appends the lane's `decisions.md`, refreshes the
+  project `STATE.md`'s `Last event` line, and archives the lane under
+  `lanes/.merged/`. It deliberately does NOT rewrite `Phase`/`Next step` —
+  those are semantic and belong to the controller. `abandon` archives a
+  rolled-back lane whose events must never enter the ledger. A `mkdir`-based
+  lock keeps two concurrent merges from interleaving.
+- **`worktree.sh` no longer leaks its markers into commits.** `.smithy-worktree`
+  (and the new `.smithy-lane`) are now added to the git common dir's
+  `info/exclude`, so an agent's `git add -A` cannot sweep them into a task
+  branch and `absorb` cannot merge that scratch onto the working branch —
+  a pre-existing bug that also broke forge's clean-tree precondition inside
+  worktrees. `remove` reports an unmerged lane rather than merging it: a
+  removed checkout is disposable, an event log is not.
+- **`implementation.tdd_level`** ∈ `minimal | balanced | max` (default
+  `balanced`) — how thorough the jigsmith's tests are. `minimal` is one test
+  per requirement (primary behaviour + the likeliest bug: "as long as the
+  software works"), `max` is exhaustive including adversarial cases. It cuts
+  test COUNT, never the RED→GREEN ordering.
+- **`implementation.tdd_commits`** ∈ `git | local` (default `git`) — `local`
+  commits nothing and keeps a stage log at
+  `reports/raw/task-N-tdd-stages.md` instead, for scratch worktrees, clean
+  histories, or when no commit grant exists. forge skips the commit-grant
+  precondition in that mode, and the inspector verifies ordering from the
+  stage log + diff rather than `git log`. Documented honestly: commit
+  ordering is the only TDD evidence the controller can verify independently,
+  so `local` trades that away.
+- **`implementation.max_fix_cycles`** (default `2`) replaces the hardcoded
+  "max 2 fix cycles per task" in forge/jig/dispatch. Applies to the plain
+  forger as well as the jigsmith; `0` means escalate on the first REJECTED.
+- **`xhigh` effort**, between `high` and `max` — the ladder is now
+  `low | medium | high | xhigh | max` with its own dispatch banner. Because
+  efforts are registry data read through `routing.sh --models`, calibrate
+  picks the new level up with no skill change.
+- New `tests/lane-matrix.sh` (50 assertions: resolution, unsafe-name refusal,
+  isolation, merge union, abandon, worktree wiring, marker exclusion). All
+  five suites green.
+
 ## 0.11.0 — unreleased
 
 Memory can live outside the repo; two-tier (global + project) config; a
