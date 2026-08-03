@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.13.0 — unreleased
+
+Model routing stops being a suggestion. A second PreToolUse hook forces every
+smithy subagent dispatch to the configured model and effort.
+
+- **The bug.** `references/dispatch.md` §1 told the controller to pass the
+  routed model and prepend the routed effort banner — and that was the entire
+  mechanism. Nothing verified it, so all three drift modes ran unchecked: the
+  `model` parameter omitted (the subagent then silently inherits the session
+  model), a cheaper tier picked by intuition, or the effort banner missing or
+  carrying the wrong level. A subagent has no way to know what it was supposed
+  to run as, so nothing downstream noticed either. `guard.sh` had made git
+  safety deterministic for exactly this reason; routing never got the same
+  treatment.
+- **`scripts/route-guard.sh` + `scripts/lib/route_guard.py`** — a PreToolUse
+  hook on subagent dispatch that REWRITES the call to match config instead of
+  rejecting it (correcting costs nothing; denying costs a turn to reach the
+  same place). It injects/corrects `model`, strips any wrong or stale effort
+  banner and prepends the right one, and announces every correction in-context
+  as `[smithy-route-guard] …` — silent rewriting would be worse than the bug.
+- **Role comes from the agent**, per dispatch.md's table: `forger`/`jigsmith`
+  → implementation, `inspector` → review, `annealer` → debugging, `temperer` →
+  testing. A brief may pin a different role with a `smithy-role: <role>` line —
+  the only sanctioned override, and it selects a ROLE, never a raw model.
+- **Fails open, deliberately** — the inverse of `guard.sh`. That guard blocks
+  on doubt because the risk is a destroyed repo; here the risk is a
+  slightly-wrong model, and a dead dispatch is worse than an unrouted one. A
+  malformed payload, a missing `python3`, an unreadable config: dispatch
+  proceeds untouched. For the same asymmetry it skips `SMITHY_PATHS_FAST` —
+  it runs once per dispatch, not before every Bash call, so it can afford full
+  path resolution and doesn't inherit the fast path's blind spot for projects
+  using the external-memory default.
+- **Two cases it reports instead of fixing**, both meaning "this config can't
+  dispatch here": a routed model the harness won't accept as a dispatch value
+  (a raw `id_patterns` passthrough like `claude-opus-9-9`), and a config whose
+  `harness` isn't the one running — plugin hooks only run under Claude Code, so
+  a `codex` config would inject `sol` and fail the harness's `updatedInput`
+  schema validation, taking the banner fix down with it. The banner is still
+  enforced in both cases.
+- **Effort-banner text is now registry DATA** — `defaults/models.json` →
+  `effort_banners`, next to `efforts`, so it inherits the
+  `$SMITHY_HOME/models.json` deep-merge and can be retuned per machine without
+  touching a script. `smithy_config.py banners` reads it; dispatch.md §1's
+  table is explicitly labelled a reading copy.
+- Emits no `permissionDecision` — "allow" would short-circuit the user's own
+  permission rules for subagent dispatch, and this hook's job is routing, not
+  authorization. Untouched: non-smithy agents, other plugins' same-named
+  agents, and every project without smithy memory.
+- `route-guard.sh table` prints the enforced agent → role → model/effort map.
+  Docs updated: dispatch.md §1 (hook-enforced, not advisory), harness.md (both
+  deterministic layers degrade under Codex, not just the git guard), calibrate
+  (what's binding and where), README, CLAUDE.md, SessionStart digest rule 3.
+- `tests/route-guard-matrix.sh` — 42 cases. Suite total: 283.
+
 ## 0.12.0 — unreleased
 
 Parallel work gets isolated state that merges back; three new TDD dials;

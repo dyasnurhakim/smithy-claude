@@ -47,6 +47,34 @@ names the file(s); the agent adapts per its mode.
 | xhigh | "Effort: XHIGH. Think very hard. Explore the solution space broadly before narrowing, and justify the paths you did not take." |
 | max | "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing." |
 
+The banner strings above are a copy for reading. The SOURCE OF TRUTH is
+`defaults/models.json` → `effort_banners` (overridable in
+`$SMITHY_HOME/models.json`); `scripts/routing.sh --models` and
+`scripts/route-guard.sh table` print what is actually in force.
+
+### This section is hook-enforced, not advisory
+
+Under Claude Code a PreToolUse hook (`scripts/route-guard.sh`) inspects every
+smithy subagent dispatch and REWRITES it to match the routing table: it injects
+or corrects the `model` parameter and strips/prepends the effort banner. You
+will see a `[smithy-route-guard]` note in context when it corrects something.
+
+Treat a correction the way you treat a guard.sh block — the system working, and
+a signal you drifted. **Do not** re-dispatch to "get around" it, and do not
+argue the routing at dispatch time: the model and effort for a role are config
+(`routing.<role>.model` / `.effort`), changed with `/smithy:calibrate` and
+nowhere else. If a task genuinely needs a different role's routing, say so and
+put `smithy-role: <role>` on its own line in the brief — that is the only
+sanctioned override, and it selects a ROLE, never a raw model.
+
+Two cases the hook reports but cannot fix, both meaning "your config can't
+dispatch here": a routed model this harness won't accept as a dispatch value
+(a raw id like `claude-opus-9-9`), and a config whose `harness` isn't the one
+running. Both need `/smithy:calibrate`; the effort banner is still enforced.
+
+Off Claude Code there are no hooks, so this section is advisory again — see
+`references/harness.md`.
+
 ## 2. Hand over files, not text
 
 The dispatch prompt contains ONLY:

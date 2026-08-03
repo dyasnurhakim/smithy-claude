@@ -19,7 +19,7 @@ Smithy (full dev pipeline) is installed. Routing (invoke the smithy:using-smithy
 Iron rules:
   1. Process first: "build X" enters at assay/smithy, never directly at forge — even when it seems clear.
   2. RCA before fix (anneal); ledger + git log outrank recollection; evidence before assertion.
-  3. Git/destructive ops are hook-guarded — a block is the system working; report it, never work around it.
+  3. Git/destructive ops are hook-guarded, and every smithy subagent dispatch is routing-guarded (model + effort forced to config) — a block or a [smithy-route-guard] correction is the system working; report it, never work around it. Routing changes go through /smithy:calibrate, never through the dispatch call.
   4. Read each smithy reference file (creed/memory/dispatch/envelope) ONCE per session; skip re-reads unless post-compaction.
   5. Use companion tools named in the user's CLAUDE.md/rules (memory, code-graph, docs); never assume unlisted ones.
 </smithy-digest>

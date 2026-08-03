@@ -11,6 +11,19 @@
   "tiers": ["flagship", "workhorse", "fast"],
   "efforts": ["low", "medium", "high", "xhigh", "max"],
 
+  "//7": "`effort_banners` is the VERBATIM text route-guard.sh stamps onto every",
+  "//8": "subagent prompt (effort is not a dispatch parameter — it is prose). It",
+  "//9": "lives here, with `efforts`, so the wording is data: retune it globally in",
+  "//10": "$SMITHY_HOME/models.json without touching a script. references/dispatch.md",
+  "//11": "§1 documents these strings; THIS file is the source of truth for them.",
+  "effort_banners": {
+    "low":    "Effort: LOW. Be brief and mechanical. No exploration beyond the brief.",
+    "medium": "Effort: MEDIUM. Think through edge cases before acting.",
+    "high":   "Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one.",
+    "xhigh":  "Effort: XHIGH. Think very hard. Explore the solution space broadly before narrowing, and justify the paths you did not take.",
+    "max":    "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing."
+  },
+
   "harnesses": {
     "claude": {
       "models": {

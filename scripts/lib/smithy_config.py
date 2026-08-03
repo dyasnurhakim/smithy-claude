@@ -23,6 +23,7 @@ Commands (all output is TAB-separated; warnings go to stderr):
     routing [<role>]             -> role  model  effort  source
     models                       -> name  tier  kind
     efforts
+    banners [<effort>]           -> effort  banner-text   (route-guard.sh)
     set <layer> <dotted.key> <value>
 """
 from __future__ import annotations
@@ -308,7 +309,7 @@ def set_key(layer: str, dotted: str, raw: str) -> None:
 # ------------------------------------------------------------------ main -----
 def main(argv: list[str]) -> int:
     if not argv:
-        die("usage: smithy_config.py harness|roles|layers|get|get-source|routing|models|efforts|set")
+        die("usage: smithy_config.py harness|roles|layers|get|get-source|routing|models|efforts|banners|set")
     cmd, rest = argv[0], argv[1:]
 
     if cmd == "layers":
@@ -353,6 +354,17 @@ def main(argv: list[str]) -> int:
 
     if cmd == "efforts":
         print(" ".join(reg.get("efforts", [])))
+        return 0
+
+    if cmd == "banners":
+        # Effort is prose, not a dispatch parameter — route_guard.py stamps
+        # these onto subagent prompts. An effort with no banner prints an empty
+        # text field rather than vanishing: the guard must be able to tell
+        # "unknown effort" from "banner deliberately blanked".
+        banners = reg.get("effort_banners", {}) or {}
+        wanted = rest or reg.get("efforts", [])
+        for effort in wanted:
+            print(TAB.join([effort, str(banners.get(effort, ""))]))
         return 0
 
     if cmd == "models":

@@ -68,12 +68,17 @@ envelopes, statuses, file handoffs, retry/escalation, persona overlays.
 
 ## What degrades under Codex — and what compensates
 
-- **Hooks do not run** (SessionStart digest, PreToolUse guard). The guard's
-  git/destructive protection is therefore PROMPT-LEVEL only: creed §6 is
-  the enforcement. Treat every rule there as if the hook would block it —
-  and tell the user once per session that the deterministic layer is off.
-  `scripts/guard.sh check "<command>"` still works manually — use it before
-  any command you're unsure about.
+- **Hooks do not run** (SessionStart digest, PreToolUse guard, PreToolUse
+  route-guard). Two deterministic layers become PROMPT-LEVEL only:
+  - *git/destructive protection* — creed §6 is the enforcement. Treat every
+    rule there as if the hook would block it. `scripts/guard.sh check
+    "<command>"` still works manually — use it before any command you're
+    unsure about.
+  - *model/effort routing* — `references/dispatch.md` §1 is the enforcement.
+    Nothing will correct a forgotten `model` or a missing effort banner, so
+    resolve routing before EVERY dispatch and apply it yourself.
+    `scripts/route-guard.sh table` prints what each agent should be running as.
+  Tell the user once per session that both deterministic layers are off.
 - **Skills are not auto-routed.** AGENTS.md (repo root) carries the digest;
   read `skills/using-smithy/SKILL.md` at session start, then read each
   skill's SKILL.md when its trigger fires — same files, manual loading.

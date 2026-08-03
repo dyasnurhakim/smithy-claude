@@ -37,7 +37,10 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
   no push without a live user yes, no commits without the plan-gate grant,
   no history rewrites, no destructive cloud/DB/fs commands without explicit
   approval. `bash scripts/guard.sh check "<command>"` answers "would this
-  be blocked?" — use it when unsure.
+  be blocked?" — use it when unsure. The same applies to model/effort
+  routing: under Claude Code a hook rewrites a drifting dispatch to match
+  config, here nothing does — resolve `scripts/routing.sh <role>` before
+  every dispatch and apply BOTH halves (model + effort banner) yourself.
 - Per-project memory lives at `$SMITHY_MEM`, which is NOT necessarily inside
   the repo. Resolve it with `bash scripts/paths.sh mem` before using any smithy
   path, and never hardcode `docs/smithy` (projects that clean or regenerate
@@ -49,11 +52,19 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
 ## Working on smithy itself
 
 Bash tests: `tests/guard-matrix.sh`, `tests/worktree-matrix.sh`,
-`tests/routing-matrix.sh`, `tests/paths-matrix.sh`, `tests/lane-matrix.sh` —
-all must stay green.
+`tests/routing-matrix.sh`, `tests/paths-matrix.sh`, `tests/lane-matrix.sh`,
+`tests/route-guard-matrix.sh` — all must stay green.
 `scripts/paths.sh` is sourced by the PreToolUse guard hook, so it must stay pure
 bash for resolution rules 1-4 (no interpreter spawn) and must never enable
 `errexit` when sourced.
+
+Two PreToolUse hooks, with opposite failure modes — keep them that way:
+`guard.sh` (Bash) BLOCKS on doubt, because the risk is a destroyed repo, and so
+it must stay `SMITHY_PATHS_FAST`. `route-guard.sh` (subagent dispatch) FAILS
+OPEN, because the risk is a slightly-wrong model and a dead dispatch is worse;
+it runs rarely enough to afford full path resolution. Effort-banner text is
+registry DATA (`defaults/models.json` → `effort_banners`), never a literal in a
+script — `references/dispatch.md` §1 is a reading copy of it.
 
 SKILL.md budget ≤300 lines. Skill descriptions are YAML-quoted (they contain
 colons). Version bumps touch `.claude-plugin/plugin.json`,

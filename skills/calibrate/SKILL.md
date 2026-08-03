@@ -133,9 +133,15 @@ Asked to move memory out of the repo (common when the repo cleans `docs/`):
 
 ## Rules
 
-- Effort is prompt-level guidance (an injected banner per
-  `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`), not an API parameter. If the
-  user expects an API knob, tell them honestly.
+- Effort is prompt-level guidance (a banner injected into the subagent prompt,
+  text from `defaults/models.json` → `effort_banners`), not an API parameter.
+  If the user expects an API knob, tell them honestly. What IS deterministic is
+  that the banner gets applied: under Claude Code the `route-guard.sh`
+  PreToolUse hook stamps both the routed model and the routed banner onto every
+  smithy subagent dispatch, so what you write here is what actually runs —
+  `bash ${CLAUDE_PLUGIN_ROOT}/scripts/route-guard.sh table` shows the enforced
+  agent→model/effort map. Off Claude Code no hooks run and routing is advisory
+  again (`references/harness.md`); say so if the user asks whether it's binding.
 - `inherit` means: omit the model parameter at dispatch; the agent's frontmatter
   default applies.
 - Never edit `defaults/config.json` or `defaults/models.json` in the plugin.

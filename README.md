@@ -248,6 +248,22 @@ A deterministic PreToolUse hook (`scripts/guard.sh`) enforces git safety in smit
 
 `DELETE FROM logs WHERE created_at < …` passes; `DELETE FROM logs` does not. `docker build`/`compose up`/`kubectl get`/`aws s3 ls`/`terraform plan` all pass — the guard targets destruction, not operations. 57-case test matrix in the repo history.
 
+## Routing guard rails
+
+Configured routing that an agent can quietly ignore isn't configuration, it's a suggestion. A second PreToolUse hook (`scripts/route-guard.sh`) makes the routing table binding: it inspects every smithy subagent dispatch and **rewrites it to match config** before it runs.
+
+- **Model** — injected when missing (otherwise the subagent silently inherits the session model), corrected when it doesn't match `routing.<role>.model`
+- **Effort** — effort isn't an API parameter, it's a banner in the prompt; the hook strips any wrong or stale banner and prepends the one `routing.<role>.effort` calls for
+- **Role** comes from the agent (`forger`/`jigsmith`→implementation, `inspector`→review, `annealer`→debugging, `temperer`→testing). A brief can pin a different one with `smithy-role: <role>` — that's the only sanctioned override, and it selects a *role*, never a raw model
+- Every correction is announced in-context as `[smithy-route-guard] …`, so a drifting controller is visible rather than silently fixed
+- **Fails open, deliberately.** The git guard blocks on doubt because the risk is a destroyed repo; here the risk is a slightly-wrong model, and killing a dispatch is the worse outcome — so a malformed payload, a missing `python3`, or any internal error lets the dispatch through untouched
+- Untouched: non-smithy agents, other plugins' agents, and every project without smithy memory
+- Two cases it reports instead of fixing (both mean "this config can't dispatch here"): a routed model the harness won't accept as a dispatch value, and a config whose `harness` isn't the one running. The banner is still enforced in both
+
+`bash scripts/route-guard.sh table` prints what each agent will actually run as. Change routing with `/smithy:calibrate` — never at the dispatch call. 42-case test matrix (`tests/route-guard-matrix.sh`).
+
+No hooks run under Codex CLI, so there routing is advisory again — `references/harness.md` says so explicitly rather than implying parity.
+
 ## Inter-agent envelope
 
 Every brief/report/verdict opens with a machine-readable YAML envelope (`references/envelope.md`): kind, job, unit, status, confidence, `key_facts[]`, `concerns[]`, `next_action`. Controllers copy unresolved key facts forward into the next brief — critical information survives every hop instead of dying in prose. `scripts/envelope.sh` parses and validates it.
