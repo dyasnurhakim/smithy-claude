@@ -1,109 +1,157 @@
 ---
 name: burnish
-description: "Design review & improvement: screenshot the live UI, judge vs DESIGN.md, gated surgical fixes with before/after proof. Triggers: 'burnish', 'polish the UI'."
+description: "Design review and polish: screenshot the live local UI, judge it against DESIGN.md (or stated rules), score it, and send the fixes the user approves through strike — with before/after screenshots as proof. Triggers: 'burnish', 'polish the UI', 'design review'."
 ---
 
 # Burnish — Design Review & Improvement
 
-(Burnishing polishes finished metal to a better surface — the piece exists;
-you make it right.)
+Burnishing polishes finished metal. The piece exists; you make its surface
+right. Design lives in rendered pixels, so every finding is a screenshot.
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory.md`,
-and `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` first.
-Job slug: active job from STATE.md, or `burnish-<YYYY-MM-DD>` standalone.
-Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append burnish <slug> audit STARTED -`
+```
+screenshots ──▶ judge vs DESIGN.md ──▶ score ──▶ USER PICKS ──▶ /smithy:strike ──▶ after-shots ──▶ report
+(before)        (or stated rules)               (the gate)     (fix, test, ONE review)  (proof)
+```
 
-Requires a runnable UI target (run command + URL from spec/STATE.md, or
-ask) and Playwright via npx. LOCAL targets only. No target → this skill
-cannot run honestly; say so and stop.
+## Start
 
-## Checklist (create a todo per item)
+1. `bash ${CLAUDE_PLUGIN_ROOT}/scripts/start.sh burnish new` — read its summary.
+2. Read once per session: `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`,
+   `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`,
+   `${CLAUDE_PLUGIN_ROOT}/references/personas/masters/designer.md` (you judge as this persona).
+   Read `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` only if step 2 dispatches an inspector.
 
-1. Baseline capture (screenshots, key pages × breakpoints)
-2. Evaluate against DESIGN.md (or declared heuristics) — proof per finding
-3. Present findings + improvement plan; user approves (gate)
-4. Fix loop: surgical fix → commit → after-screenshot → verify
-5. Re-score, write report (md + json), route leftovers
+## Needs
 
-## 1. Baseline capture
+| Needs | If it exists | If it is missing |
+|---|---|---|
+| The UI running LOCALLY (run command + URL) | the Run line (`${CLAUDE_PLUGIN_ROOT}/references/memory-card.md` § Run line) — confirm it loads | **stop**: say "burnish needs the app running locally — start it (e.g. `npm run dev`) and give me the URL". Never a remote or production URL |
+| Playwright via npx | `npx --no-install playwright --version` prints a version | **stop**: say "Playwright is missing — run `npx playwright install chromium` (fetches Playwright and a browser), then run burnish again". The user runs it |
+| The design standard | `<memory>/DESIGN.md` — drift from it is a finding citing its line | judge by the stated rules in step 2 AND say so in the report; offer `/smithy:pattern` at the end |
+| Which pages and states | the user names them | default: the main pages + one form, one empty state, one error state — confirm the list |
+| A past burnish report (the baseline) | slugs differ each run, so glob `jobs/*/reports/burnish-report.json`, skip this job's, take the newest by mtime; compare fingerprints with it | every finding is New |
+| Commit approval | not burnish's job — burnish never edits | strike asks once; that yes is the commit grant (`guard.sh grant`) |
 
-Evidence dir: `$SMITHY_MEM/jobs/<slug>/reports/burnish-evidence/`.
-Screenshot every key page/state the user names (default: main pages plus
-one form, one empty state, one error state) at 320 / 768 / 1440 widths:
-`npx playwright screenshot --viewport-size=<w>,720 <url> <dir>/base-<page>-<w>.png`
-(scratch spec for states needing interaction). These baselines are the
-before-images for every later fix.
+Paths below are relative to the `memory:` folder start.sh printed.
+Evidence folder: `jobs/<slug>/reports/burnish-evidence/`.
 
-## 2. Evaluate — standard first, then eyes
+## Steps
 
-**Standard:** `$SMITHY_MEM/DESIGN.md` if it exists (tokens, states, voice —
-drift from it is a finding with the DESIGN.md line cited). No DESIGN.md →
-evaluate against these declared heuristics AND say so in the report:
-- Hierarchy: one clear primary action/message per view; scale contrast.
-- Rhythm: consistent spacing scale; alignment to a grid; no orphan margins.
-- Consistency: same radius/shadow/spacing/terminology for the same concept.
-- States: hover/focus/active/disabled designed; loading/empty/error present.
-- Accessibility: contrast (compute it), focus visibility, touch targets,
-  keyboard reachability of primary flows.
-- Anti-template: the banned list from `/smithy:pattern` — default-look UI,
-  uniform card grids, gray+one-accent, undesigned states, and the three AI
-  clichés (cream+serif+terracotta / near-black+acid accent / broadsheet
-  hairlines) appearing as unexamined defaults.
-- Distinctiveness: is there a signature element, or would this design fit
-  any product? Copy check: end-user vocabulary, consistent action names,
-  errors that direct rather than apologize.
-- Responsive: no overflow/breakage at the three widths.
+1. **Before screenshots** — each page at widths 320, 768 and 1440:
+   `npx playwright screenshot --viewport-size=<w>,720 <url> <evidence>/base-<page>-<w>.png`.
+   States that need clicks or typing → a scratch Playwright script kept in
+   the evidence folder (never in the project's tests).
+   → verify: one `base-*.png` per page × width; list any page that failed to load.
 
-For the evaluation itself, adopt the `master-designer` persona
-(`${CLAUDE_PLUGIN_ROOT}/references/personas/masters/designer.md`) alongside
-the heuristics — or, on large apps, dispatch it as a `smithy:inspector`
-overlay (routing role `review`) with the baseline screenshots as its live
-evidence, and merge its findings into yours.
+2. **Judge** — standard first, then eyes. Lookup (creed §10): memory —
+   past burnish findings and design decisions for these screens.
+   With DESIGN.md: its tokens, states and voice. Without it, these stated rules:
+   - **Hierarchy**: one clear main action or message per view; real size contrast.
+   - **Rhythm**: one spacing scale; things line up on a grid; no stray margins.
+   - **Consistency**: same radius, shadow, spacing and words for the same thing.
+   - **States**: hover, focus, active, disabled designed; loading, empty, error present.
+   - **Accessibility**: contrast (compute it), visible focus, touch targets,
+     main flows usable by keyboard.
+   - **Anti-template**: the banned list in `/smithy:pattern` § Anti-template
+     gate (stock look, uniform card grids, gray + one accent, undesigned
+     states, the three AI clichés) showing up as unexamined defaults.
+   - **Distinctiveness**: is there a signature element, or would this fit any
+     product? Copy: the user's words, the same action names, errors that
+     direct instead of apologize.
+   - **Responsive**: no overflow or breakage at the three widths.
+   Large apps: also dispatch ONE `inspector` (role `review`; read
+   `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` now and follow §1–2) with `${CLAUDE_PLUGIN_ROOT}/references/personas/masters/designer.md`
+   as its overlay and the before screenshots as live evidence; merge its
+   findings into yours.
+   → verify: every finding has proof (next list).
 
-Every finding follows the inspector evidence contract: screenshot path +
-what it shows (crop/annotate mentally — name the region in `detail`),
-why flagged, severity + because (Critical = a user class blocked or data
-lost; High = primary flow degraded / AA failure; Medium = consistency or
-rhythm break; Low = polish). Fingerprint each finding for cross-run trends.
+   Every finding carries:
+   - proof: screenshot path + the region it shows;
+   - why it is flagged (the DESIGN.md line or the rule above);
+   - severity + because — Critical = a group of users is blocked or data is
+     lost; High = a main flow is worse, or a WCAG AA failure; Medium = a
+     consistency or rhythm break; Low = polish;
+   - confidence 1–10;
+   - category (one of the five below) and fingerprint per
+     `${CLAUDE_PLUGIN_ROOT}/references/envelope.md` § Finding fingerprint (file = the route or
+     screen name). Against the baseline report (Needs): Resolved / Persistent / New.
 
-## 3. Gate — findings before fixes
+3. **Score** — the burnish design score. Scoring method from
+   `/smithy:wield`: each category starts at 100; deduct Critical −25,
+   High −15, Medium −8, Low −3 (floor 0). Burnish's own design categories
+   and their weights in the overall score:
 
-Present: score (wield rubric, UX-weighted: Visual 25, UX 25, A11y 20,
-Consistency 15, Responsive 15), findings table with evidence paths, and the
-improvement plan (finding → intended change → risk). AskUserQuestion:
-approve all / select subset / stop at report. **This skill never edits
-without this gate.** Standalone fixes also need a commit grant
-(`guard.sh status`; ask + `guard.sh grant <slug>` on yes).
+   | Visual | UX | A11y | Consistency | Responsive |
+   |---|---|---|---|---|
+   | 25% | 25% | 20% | 15% | 15% |
 
-## 4. Fix loop (approved findings, severity order)
+   → verify: five category scores and one overall score, each traceable to findings.
 
-Per finding: write a fix brief (dispatch.md template — context: the files +
-the evidence screenshot + the DESIGN.md rule; requirement: the SMALLEST
-change that resolves it; no drive-by refactors) → dispatch `smithy:forger`
-(routing role `implementation`) → after-screenshot at the same
-page/breakpoint → compare with the before-image → commit
-`fix(burnish): ISSUE-NNN — <desc>`, one commit per fix.
-Regression (anything else visually broke) → revert that commit, mark the
-finding deferred with both screenshots. Never bundle fixes.
+4. **Gate — findings before fixes** — first write the pre-fix report:
+   `jobs/<slug>/reports/burnish-report.md` + `burnish-report.json` in the
+   step 7 format, with the before score and every finding open. Then show
+   the score, the findings table (severity, confidence, evidence path) and
+   the improvement plan (finding → intended change → risk). Ask: fix all /
+   pick some / stop at the report. **Burnish never edits without this yes.**
+   → verify: both report files exist BEFORE any strike call; the user's
+   choice is recorded in the report.
 
-## 5. Re-score + report
+5. **Fix through `/smithy:strike`** — pass strike the pre-fix report
+   `jobs/<slug>/reports/burnish-report.md` as its findings file, and name the
+   approved findings in severity order. Each item = finding id + files + evidence screenshot +
+   the DESIGN.md line or rule + the SMALLEST change that fixes it (no
+   drive-by refactors). Strike confirms once (the commit grant), builds one
+   commit per item, runs its tests, then ONE `inspector` review of the fix
+   diff (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §5) with fix rounds up to
+   `implementation.max_fix_cycles`. More items than strike takes → run it
+   in rounds, highest severity first.
+   → verify: strike's report lists each item as committed or deferred.
 
-Re-capture the affected baselines. Write `reports/burnish-report.md`
-(envelope kind: test-report, agent: controller) — score before → after,
-findings table (fixed / deferred / open) with before/after screenshot pairs
-— plus the machine twin `reports/burnish-report.json` (same findings shape
-as guild-verdict.json + scores). Log:
-`ledger.sh append burnish <slug> audit <PASS|FAIL|PARTIAL> reports/burnish-report.md`
-(PASS = no Critical/High open). Update STATE.md.
+6. **After screenshots** — retake every fixed page at the same widths:
+   `<evidence>/after-<page>-<w>.png`. A finding is fixed only when its
+   after-shot shows it. Anything else that looks broken now = a regression:
+   mark that finding deferred with both screenshots, and ask the user
+   before `git revert <sha>` of that item's commit (one commit per item
+   keeps the good fixes safe).
+   → verify: a before/after pair for every fixed finding.
+
+7. **Report** — update the step 4 report `jobs/<slug>/reports/burnish-report.md`: envelope
+   (`kind: test-report`, `unit: audit`, `agent: controller`), first body
+   line `Status:`, then score before → after, the findings table (fixed /
+   deferred / open, fingerprint, before/after pair), the standard used
+   (DESIGN.md or stated rules). Machine twin `burnish-report.json`: the
+   same finding shape as `guild-verdict.json`, plus the scores.
+   Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append burnish <slug> audit <PASS|FAIL|PARTIAL> jobs/<slug>/reports/burnish-report.md`
+   (PASS = no Critical/High open; FAIL = some open; PARTIAL = some pages could not be captured).
+   STATE.md: only if start.sh showed `active=none`, rewrite it for this job
+   (Phase IDLE, Next step). Otherwise another job owns STATE — leave it alone.
+   → verify: both report files exist; `envelope.sh validate` passes; ledger line written.
+
+## Done when
+
+- [ ] the app was local and loaded; before screenshots exist for every page × width
+- [ ] the standard was named (DESIGN.md, or the stated rules)
+- [ ] every finding has a screenshot, severity + because, confidence and fingerprint
+- [ ] five category scores + overall, before (and after, if fixes ran)
+- [ ] the user's gate choice is recorded; nothing was edited without it
+- [ ] fixes (if any) went through strike: one commit per item, one inspector review
+- [ ] every fixed finding has a before/after pair; regressions are deferred with both shots
+- [ ] `burnish-report.md` + `burnish-report.json` written; ledger line written
+
+## Output
+
+`jobs/<slug>/reports/burnish-report.md` · `burnish-report.json` ·
+`burnish-evidence/` (before/after screenshots) · strike's report, if fixes ran.
+
+`Next: /smithy:pattern — no DESIGN.md yet, lock the system so the next burnish measures instead of judging` · or `Next: /smithy:burnish — open Critical/High remain` · or `Next: none — check the after screenshots`.
 
 ## Red flags
 
 | Thought | Reality |
 |---|---|
-| "I can judge the design from the source code" | Design lives in rendered pixels. No live target, no burnish. |
-| "The finding is obvious, skip the screenshot" | Unproven findings are opinions. The screenshot is the finding. |
-| "While fixing spacing I'll also restructure the component" | Surgical or nothing — every changed line traces to a finding. |
-| "It looks better now, ship all fixes in one commit" | One commit per fix or reverting a regression takes the good fixes with it. |
-| "No DESIGN.md, so anything goes" | Heuristics are declared up front, then applied consistently — taste with a paper trail. Offer `/smithy:pattern` after. |
-
-Handoff: "Report + evidence in `reports/`. Open Critical/High → another burnish round or `/smithy:forge`; no DESIGN.md yet → `/smithy:pattern` locks the system so the next burnish measures instead of judging."
+| "I can judge the design from the source code" | Design lives in rendered pixels. No live local app, no burnish. |
+| "The finding is obvious, skip the screenshot" | A finding without proof is an opinion. The screenshot is the finding. |
+| "While fixing spacing I'll also restructure the component" | Small and exact or nothing — every changed line traces to a finding. |
+| "It looks better now, ship all fixes in one commit" | One commit per item, or reverting a regression takes the good fixes with it. |
+| "The fixes are tiny, I'll edit them myself" | Fixes go through strike so they are tested and reviewed. |
+| "No DESIGN.md, so anything goes" | State the rules first, then apply them the same way everywhere. |

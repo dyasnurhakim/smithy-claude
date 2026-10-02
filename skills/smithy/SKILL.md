@@ -1,178 +1,168 @@
 ---
 name: smithy
-description: "Full pipeline orchestrator (research→plan→implement→review→test) with approval gates and ledger resume. Triggers: 'run smithy', 'build end to end', 'full pipeline', resume smithy work."
+description: "Full pipeline orchestrator (research → plan → build + review → panel → test) with approval gates and ledger resume. Triggers: 'run smithy', 'build end to end', 'full pipeline', resume smithy work."
 ---
 
 # Smithy — Pipeline Orchestrator
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/memory.md` first.
-Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
-every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
-does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
-
 **You orchestrate. You never do phase work yourself.** Each phase runs by
-invoking that phase's skill; you read back only status lines, artifact paths,
-and short summaries. Never paste artifact contents into your context.
+invoking its skill. You read back only statuses, file paths and short
+summaries — never paste a file's contents into your context.
 
-## Checklist (create a todo per item)
-
-1. Read STATE.md + ledger; resolve resume-vs-new with the user
-2. Run each phase via its skill, in state-machine order
-3. Gate at every phase boundary (present → ask → log)
-4. Route failures through ANNEAL, back to the exact broken unit
-5. Exit: TEMPER READY + final gate → STATE.md idle → offer handover
-
-## Process flow
-
-```dot
-digraph smithy_pipeline {
-    "Read STATE.md + ledger" [shape=box];
-    "Active job?" [shape=diamond];
-    "Ask: resume / new / abort" [shape=box];
-    "ASSAY (/smithy:assay)" [shape=box];
-    "Gate: spec approved?" [shape=diamond];
-    "BLUEPRINT (/smithy:blueprint)" [shape=box];
-    "Gate: plan approved?" [shape=diamond];
-    "FORGE (/smithy:forge)" [shape=box];
-    "Task failure x2?" [shape=diamond];
-    "TEMPER (/smithy:temper)" [shape=box];
-    "Verdict READY?" [shape=diamond];
-    "ANNEAL (/smithy:anneal)" [shape=box];
-    "Gate: ship it?" [shape=diamond];
-    "STATE.md -> IDLE; offer /smithy:handover" [shape=doublecircle];
-
-    "Read STATE.md + ledger" -> "Active job?";
-    "Active job?" -> "Ask: resume / new / abort" [label="yes"];
-    "Active job?" -> "ASSAY (/smithy:assay)" [label="no"];
-    "Ask: resume / new / abort" -> "ASSAY (/smithy:assay)" [label="new, or resume at ASSAY"];
-    "ASSAY (/smithy:assay)" -> "Gate: spec approved?";
-    "Gate: spec approved?" -> "ASSAY (/smithy:assay)" [label="revise"];
-    "Gate: spec approved?" -> "BLUEPRINT (/smithy:blueprint)" [label="approve"];
-    "BLUEPRINT (/smithy:blueprint)" -> "Gate: plan approved?";
-    "Gate: plan approved?" -> "BLUEPRINT (/smithy:blueprint)" [label="revise"];
-    "Gate: plan approved?" -> "FORGE (/smithy:forge)" [label="approve"];
-    "FORGE (/smithy:forge)" -> "Task failure x2?";
-    "Task failure x2?" -> "ANNEAL (/smithy:anneal)" [label="yes, offer anneal"];
-    "Task failure x2?" -> "GUILD (/smithy:guild)" [label="all tasks approved"];
-    "GUILD (/smithy:guild)" -> "TEMPER (/smithy:temper)" [label="PRODUCTION_READY (or panel=never)"];
-    "GUILD (/smithy:guild)" -> "FORGE (/smithy:forge)" [label="NOT_READY: finding briefs"];
-    "ANNEAL (/smithy:anneal)" -> "FORGE (/smithy:forge)" [label="fix applied, return to broken unit"];
-    "TEMPER (/smithy:temper)" -> "Verdict READY?";
-    "Verdict READY?" -> "ANNEAL (/smithy:anneal)" [label="NOT READY"];
-    "Verdict READY?" -> "Gate: ship it?" [label="READY"];
-    "Gate: ship it?" -> "STATE.md -> IDLE; offer /smithy:handover" [label="approve"];
-}
+```
+ASSAY ─[gate]─▶ BLUEPRINT ─[gate: yes = commit grant]─▶ FORGE ─[gate]─▶ GUILD ─▶ TEMPER ─[gate: ship]─▶ IDLE
+                                    tasks (self-checked) + ONE review │            │
+                                                          NOT_READY ──┘            └── NOT READY
+                                                              ▼                          ▼
+                                                   STRIKE (known fixes)      ANNEAL (cause unknown)
+                                                                             STRIKE (known fixes)
+        after a fix lane: back to the exact unit that broke — never the phase start
 ```
 
-(ANNEAL exiting from a TEMPER failure re-runs ONLY the failing suite, then
-re-consolidates — not the whole TEMPER phase.)
+STATE.md phases (`${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`): ASSAY · BLUEPRINT · FORGE ·
+STRIKE · ANNEAL · TEMPER · GUILD · IDLE. You own STATE.md between phases.
 
-GUILD (`/smithy:guild`) is the production-readiness persona panel. It runs
-when `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get review_panel` is `auto` or
-`always`, and is skipped when `never`. NOT_READY routes finding briefs back to FORGE; after fixes, only
-the personas that raised findings re-run. GUILD has no user gate of its own —
-its verdict feeds the flow; Medium/Low deferrals need explicit user
-acceptance recorded in decisions.md.
+## Start
 
-## Entry: resume or start
+1. **The request first.** The user gave none → ask what to build, in one
+   question. Pick a short feature slug from the answer.
+2. `bash ${CLAUDE_PLUGIN_ROOT}/scripts/start.sh smithy <feature-slug>` (the
+   same slug you will give assay) — read its summary. Resuming earlier work:
+   `start.sh smithy auto`.
+3. Read once per session: `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`.
+   `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Lanes only when lanes exist or you run two pipelines.
 
-1. Read `$SMITHY_MEM/STATE.md` and `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30`.
-2. If STATE.md shows an active job, AskUserQuestion: **Resume** at the
-   recorded position (say exactly where: phase + unit + next action) or
-   **Start new** (the old job stays on disk) or **Abort old job** (STATE.md
-   → IDLE, ledger notes the abort).
-3. Resume rule: recompute position from the LEDGER, not recollection — the
-   first unit without a `DONE`/`APPROVED`/`PASS` line is where work resumes.
-   Cross-check `git log --oneline <base>..HEAD` when a base sha exists, and
-   scan the job's `reports/` dir for artifacts the ledger missed (a crashed
-   session may have produced work it never logged).
-4. **Check for unmerged state lanes:**
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh list`. Any active lane means a
-   previous parallel batch never finished folding its events back in — those
-   events are missing from the ledger you just read, so the resume position
-   above is under-reporting. Read the lane
-   (`SMITHY_LANE=<name> ledger.sh tail`), then merge it if its branch landed
-   or abandon it if the work was rolled back, BEFORE computing where to
-   resume. See `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Lanes.
+## Needs
 
-## Running two pipelines at once
+| Needs | If it exists | If it is missing |
+|---|---|---|
+| A goal from the user | use it | ask what to build, in one question |
+| An active job (start.sh `state: active=`) | ask: **Resume** (say phase + unit + next action) / **Start new** (the old job stays on disk) / **Abort old** (STATE.md → IDLE; `ledger.sh append smithy <old> abort REJECTED -`) | start at ASSAY |
+| Unmerged lanes (start.sh prints them) | read each (`SMITHY_LANE=<name> ledger.sh tail`); merge it if its branch landed, abandon it if the work was rolled back — BEFORE computing where to resume | continue |
+| `gates.pause_between_phases` | `config.sh get gates.pause_between_phases` (merges all config layers; never read a config file directly) | default `true` |
 
-A second pipeline in the same repo is safe when — and only when — it gets its
-own workspace AND its own lane. The worktree isolates the code; the lane
-isolates `STATE.md`/`ledger.md`/`decisions.md`, which are otherwise
-single-writer (STATE.md holds ONE `Active job:` line, so two pipelines would
-overwrite each other's position every phase boundary).
+## Steps
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <job-b> pipeline   # checkout + lane, in one step
-```
+1. **Find the position.** Resume = recompute from the LEDGER, not memory:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30`. The first unit
+   without `DONE` / `APPROVED` / `PASS` is where work resumes. Cross-check
+   `git log --oneline <base>..HEAD` when a base exists, and scan the job's
+   `reports/` for work a crashed session never logged.
+   → verify: you can name the phase and unit, with the ledger line before it.
 
-Then run the second pipeline from inside that checkout: the `.smithy-lane`
-marker makes every smithy script there resolve the lane automatically. Both
-pipelines keep reading the shared project history (reads are merged), while
-their writes stay apart. When the second job lands, `lane.sh merge <job-b>-pipeline`
-folds its events into the project ledger in timestamp order.
+2. **ASSAY** — invoke `/smithy:assay`. Then **[gate]**.
+   → verify: `spec.md` exists with no open questions; gate line logged.
 
-Do NOT start a second pipeline in the SAME checkout, whatever the isolation of
-the jobs themselves — one working tree cannot hold two atomic task commits, and
-`git status` cleanliness is a precondition both pipelines depend on.
+3. **BLUEPRINT** — invoke `/smithy:blueprint` (it records the job base once).
+   Then **[gate]** — this gate carries the commit grant (Gates, rule 4).
+   → verify: `plan.md` + briefs exist; `guard.sh status` shows the grant.
+
+4. **FORGE** — invoke `/smithy:forge`. Agents self-check each task; forge
+   runs ONE review of the whole job and its own fix rounds
+   (`implementation.max_fix_cycles`). There is no per-task review and no
+   gate per task. Then **[gate]**.
+   → verify: `forge-report.md` with both review verdicts APPROVED, or the user decided.
+
+5. **GUILD** — runs when `config.sh get review_panel` is `auto` or
+   `always`; skipped when `never`. It has no gate of its own; its verdict
+   drives the flow. NOT_READY → **STRIKE** with the guild report path
+   (Critical/High findings), then re-run only the personas that raised
+   findings. Medium/Low deferrals need the user's explicit OK, recorded in
+   `decisions.md`. Rounds: `implementation.max_fix_cycles`, then the user.
+   → verify: PRODUCTION_READY, the panel is off, or the user decided.
+
+6. **TEMPER** — invoke `/smithy:temper`. NOT READY → Failure routing.
+   READY → **[gate: ship it?]**.
+   → verify: a READY verdict line in the ledger; ship gate logged.
+
+7. **Exit** — run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh status`. The
+   grant names THIS job → `guard.sh revoke` (commit authorization ends with
+   the job). It names another job → leave it: there is one grant file per
+   project, and that job still needs it. STATE.md: Phase IDLE, next step none.
+   Offer `/smithy:handover`.
+   → verify: `guard.sh status` shows no grant for this job.
 
 ## Gates
 
-At each `[gate]` (skipped only if `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get
-gates.pause_between_phases` prints false — that command merges all three
-config layers, so never read a config file directly):
+At each `[gate]` — skipped only when `gates.pause_between_phases` is
+`false`. The commit grant still needs the user's yes even then (creed §6):
 
-1. Present: the phase's artifact path + a ≤5-line summary + what the next
+1. **Present:** the phase's file path + a ≤5-line summary + what the next
    phase will do + any concerns carried forward.
-2. AskUserQuestion: **Approve** (continue) / **Revise** (re-run the phase
-   with the user's feedback appended to its input) / **Abort** (update
-   STATE.md, stop cleanly).
-3. Log: `ledger.sh append gate <slug> <phase> <APPROVED|REJECTED> <artifact>`
-   and update STATE.md (phase, next step) — the gate line is what resume
-   trusts, so it is written BEFORE announcing the next phase.
-4. **The BLUEPRINT gate carries commit authorization.** When presenting it,
-   say so explicitly: "Approving this plan authorizes its task commits."
-   On approval run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh grant <slug>`;
-   the guard hook blocks agent commits without it. At job end (Exit) run
-   `guard.sh revoke`. Push is NEVER granted here — a push needs its own live
-   user yes, then `guard.sh allow-push-once`.
-
-FORGE's per-task inspect verdicts are internal — no user gate per task. Two
-REJECTED cycles on one task escalates to the user (that escalation is not a
-gate; it's a blocking question).
+2. **Ask:** **Approve** (go on) / **Revise** (re-run the phase with the
+   user's feedback added to its input) / **Abort** (update STATE.md, stop cleanly).
+3. **Log first:** `ledger.sh append gate <slug> <phase> <APPROVED|REJECTED> <file>`
+   (`gate` is the one reserved ledger phase that is not a skill name)
+   and update STATE.md (phase, next step) BEFORE announcing the next phase —
+   resume trusts the gate line.
+4. **The BLUEPRINT gate carries commit authorization.** Say it:
+   **"Approving this plan authorizes its task commits."** On yes:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh grant <slug>`. The guard hook
+   blocks agent commits without it. A push is NEVER granted here — it needs
+   its own live yes, then `guard.sh allow-push-once`.
 
 ## Failure routing
 
-- FORGE task fails verify or review twice → offer ANNEAL on the failing
-  report before any third attempt.
-- TEMPER returns NOT READY → offer ANNEAL with the failing suite's report;
-  after the fix lands (via jig/forge), re-run ONLY the failing suite, then
-  re-consolidate the temper summary.
-- ANNEAL exits → return to the exact unit that broke, not the phase start.
-- The user rejects a gate twice → stop and ask what outcome they actually
-  want; don't loop the phase a third time on the same feedback.
-
-## Red flags — these thoughts mean STOP
-
-| Thought | Reality |
+| What failed | Route |
 |---|---|
-| "I'll just do this phase inline, dispatching is overhead" | Inline phase work floods orchestrator context — the exact failure mode this design isolates. Invoke the skill. |
-| "I remember where we were, skip the ledger read" | Recollection dies at compaction. The ledger is one command. Read it. |
-| "The user approved the last three gates, skip this one" | Approval fatigue is real, but silent skipping breaks the audit trail. Present it compactly instead. |
-| "I'll summarize the spec into my context for convenience" | That summary lives in your context forever. Paths + 5 lines, no more. |
-| "TEMPER failed on a flake, just rerun until green" | Rerun-until-green launders flakes into passes. Route it through ANNEAL. |
+| A FORGE task is BLOCKED, or its checks fail for an unknown reason | **ANNEAL** with the task report; then back to that task |
+| FORGE's fix budget (`implementation.max_fix_cycles`) is spent | forge stops and shows both reviews; ask the user: ANNEAL (cause unclear), STRIKE (known fixes), or accept |
+| GUILD NOT_READY | **STRIKE** with the guild report path (step 5) |
+| TEMPER NOT READY — failing tests, cause unknown | **ANNEAL** with the failing suite's report |
+| TEMPER NOT READY — findings with a known fix (e.g. QA findings) | **STRIKE** with the report path |
+| After ANNEAL / STRIKE | re-run ONLY the unit that broke (one task, or one suite, then re-consolidate temper) — not the phase start |
+| The user rejects the same gate twice | stop; ask what outcome they want. Do not loop the phase a third time on the same feedback |
+
+Set STATE.md's Phase to STRIKE or ANNEAL while a fix lane runs; the active
+job stays this job.
+
+## Running two pipelines at once
+
+Safe only with its own checkout AND its own state lane (STATE.md holds ONE
+`Active job:` line, so two pipelines in one place overwrite each other):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <job-b> pipeline   # checkout + lane in one step
+```
+
+Run the second pipeline inside that checkout; its `.smithy-lane` marker
+makes every smithy script there use the lane. Reads see the shared history;
+writes stay apart. When job B lands: `lane.sh merge <job-b>-pipeline`.
+The commit grant is NOT per lane: one grant file per project. At exit, each
+pipeline revokes only a grant that names its own job (step 7).
+Never run two pipelines in the SAME checkout — one working tree cannot hold
+two jobs' task commits, and both need a clean `git status`.
 
 ## Context discipline
 
-- After each gate on large jobs, recommend the user `/clear` — the ledger
-  and STATE.md carry everything forward; resume is lossless by design.
-- If you notice your context bloating mid-FORGE, say so and recommend
-  clearing at the next task boundary.
+- After each gate on a large job, recommend `/clear` — STATE.md and the
+  ledger carry everything; resume loses nothing.
+- If your context grows mid-FORGE, say so and recommend clearing at the next
+  task boundary.
 
-## Exit
+## Done when
 
-TEMPER verdict READY + final gate approved → run
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh revoke` (commit authorization
-ends with the job), update STATE.md (Phase: IDLE, next step: none), then
-offer `/smithy:handover`.
+- [ ] every phase that ran has a `DONE` / `APPROVED` / `PASS` ledger line (cite them)
+- [ ] every gate has a gate line, or `pause_between_phases=false` was shown
+- [ ] forge's one review: both verdicts APPROVED, or the user decided
+- [ ] guild PRODUCTION_READY, or the panel was off, or the user accepted deferrals (decisions.md)
+- [ ] temper READY and the ship gate approved
+- [ ] `guard.sh status` shows no grant for this job; STATE.md Phase IDLE
+
+## Output
+
+The job folder `<memory>/jobs/<slug>/` (spec, plan, briefs, reports) and the
+ledger. Nothing is pushed.
+
+`Next: /smithy:handover — save the session for the next one`
+
+## Red flags
+
+| Thought | Reality |
+|---|---|
+| "I'll do this phase inline, invoking is overhead" | Inline phase work floods your context — the failure this design prevents. Invoke the skill. |
+| "I remember where we were, skip the ledger" | Memory dies at compaction. The ledger is one command. Read it. |
+| "The user approved three gates, skip this one" | Silent skips break the record. Present it briefly instead. |
+| "I'll keep a summary of the spec in my context" | It stays there forever. Paths + 5 lines, no more. |
+| "TEMPER failed on a flake, rerun until green" | Rerun-until-green hides flakes. Route it through ANNEAL. |
+| "Guild findings are small, send them to forge" | Findings go to STRIKE — no plan needed, still checked and reviewed. |

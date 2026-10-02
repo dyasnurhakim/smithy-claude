@@ -18,10 +18,10 @@ fails=0
 
 RG="bash $S/route-guard.sh"
 
-B_LOW="Effort: LOW. Be brief and mechanical. No exploration beyond the brief."
-B_MED="Effort: MEDIUM. Think through edge cases before acting."
-B_HIGH="Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one."
-B_MAX="Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing."
+B_LOW="Effort: LOW. Keep it short and mechanical. Do only what the brief says; do not explore beyond it."
+B_MED="Effort: MEDIUM. Think through the edge cases before you act."
+B_HIGH="Effort: HIGH. Think hard. List the possible explanations or options before you pick one."
+B_MAX="Effort: MAX. Ultrathink. Try every option. Before you decide, make the strongest case for the opposite answer."
 
 g() { # g <desc> <expect-substr> <cmd...> — assert stdout CONTAINS
   local desc="$1" want="$2"; shift 2

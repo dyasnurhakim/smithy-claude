@@ -2,24 +2,24 @@
 
 ## API (FastAPI/Flask/Django)
 
-- Prefer in-process test clients (httpx `ASGITransport`/`TestClient`,
-  Flask `test_client`, Django `Client`) — no port juggling; else run the
-  server via the project's own command and poll readiness.
-- Per endpoint flow: happy path, validation failures (assert the 4xx code AND
-  the error body shape), auth failures, not-found, malformed JSON, wrong
-  content-type.
-- Error responses must not leak tracebacks/internals — leak = High finding.
-- Side-effect checks: after mutating calls, read back and assert state.
+- Prefer in-process test clients (httpx `ASGITransport` / `TestClient`,
+  Flask `test_client`, Django `Client`) — no port juggling. Otherwise run the
+  server with the project's own command and poll until it is ready.
+- Per endpoint, test: the happy path, validation failures (check the 4xx
+  code AND the shape of the error body), auth failures, not-found, malformed
+  JSON, wrong content-type.
+- Error responses must not leak tracebacks or internals — a leak is a High finding.
+- Side effects: after a call that changes data, read it back and check it.
 
 ## CLI
 
-- Invoke via `subprocess.run([...], capture_output=True, text=True)`:
+- Call it with `subprocess.run([...], capture_output=True, text=True)`:
   valid args, invalid args (usage on stderr + nonzero exit), `--help`,
-  empty/huge stdin. Assert exit codes and stream separation.
+  empty or huge stdin. Check exit codes, and that stdout and stderr stay separate.
 
-## Web UI (rare for python-only repos)
+## Web UI (rare in Python-only repos)
 
-- Use Playwright via `npx playwright` (ephemeral) against the running app;
-  same flow rules as the TS playbook — including its MANDATORY screenshot
-  evidence rule (per-flow, before/after mutations, per-finding, verified
-  with `ls <evidence-dir>`).
+- Use Playwright via `npx playwright` (one-off run) against the running app;
+  same flow rules as the TS playbook — including its REQUIRED screenshot
+  rule (per flow, before/after changes, per finding, checked with
+  `ls <evidence-dir>`).

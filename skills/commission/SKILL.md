@@ -1,47 +1,67 @@
 ---
 name: commission
-description: "Generate project test personas from real user roles (evidence + interview); powers per-persona QA and guild judgment. Triggers: 'commission', 'define the users'."
+description: "Write project test personas from the system's real user roles (code evidence + a short interview). They power per-persona QA in wield and the end-user view in guild. Triggers: 'commission', 'define the users', 'who uses this system'."
 ---
 
 # Commission — Project Personas
 
-(A commission tells the smith who the work is FOR. You cannot judge a blade
-without knowing whose hand it fits.)
+A commission tells the smith who the work is FOR. You cannot judge a blade
+without knowing whose hand it must fit.
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/envelope.md` first.
-Resolve memory first: `export SMITHY_MEM="$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/paths.sh mem)"` —
-every smithy path below is relative to it, and it need NOT be inside the repo. If that dir
-does not exist, bootstrap per `${CLAUDE_PLUGIN_ROOT}/references/memory.md` § Location.
-Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append commission <slug-or-'-'> personas STARTED -`
+```
+code + docs ──▶ roles found (file:line) ──▶ user fixes the list ──▶ interview ──▶ one file per role
+                                                                                 <memory>/personas/
+```
 
-Output: one file per role at `$SMITHY_MEM/personas/<role-slug>.md`.
-These are PROJECT personas (specific real users of THIS system) — distinct
-from the plugin's generic masters/patrons, which they complement.
+These are PROJECT personas: the real users of THIS system. They add to the
+plugin's generic personas (`${CLAUDE_PLUGIN_ROOT}/references/personas/masters/`, `patrons/`); they
+do not replace them.
 
-## Process
+## Start
 
-1. **Discover the roles — evidence first, questions second.**
-   - Read `$SMITHY_MEM/jobs/*/spec.md`, README, and product docs for named
+1. `bash ${CLAUDE_PLUGIN_ROOT}/scripts/start.sh commission new` — read its summary.
+2. Read once per session: `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`,
+   `${CLAUDE_PLUGIN_ROOT}/references/envelope.md`.
+
+## Needs
+
+| Needs | If it exists | If it is missing |
+|---|---|---|
+| A git repo with some code or docs | read it for roles | start.sh exits 4 — say this needs a repo and stop |
+| Specs / README / product docs | read them for named user types | rely on code evidence and the interview |
+| Existing `<memory>/personas/*.md` | update them in place (step 5) | write new ones |
+
+Nothing else must run first.
+
+## Steps
+
+1. **Find the roles — evidence first, questions second.**
+   - Read `<memory>/jobs/*/spec.md`, the README and product docs for named
      user types.
-   - Grep the code for role definitions: `role`, `permission`, `is_admin`,
-     enums like `Role.`, auth middleware, route guards, RBAC tables,
-     seed data. Cite file:line for every role found.
-   - Present the discovered list; ask the user what's missing or wrong
-     ("who else uses this system? anyone non-obvious — internal admins,
-     API consumers, auditors?"). Never invent a role the evidence or the
-     user didn't give you.
+   - Search the code for role definitions: `role`, `permission`, `is_admin`,
+     enums like `Role.`, auth middleware, route guards, RBAC tables (role-based
+     access control), seed data. Cite `file:line` for every role.
+   - Lookup (creed §10, once): a graph tool fits "where are roles checked?";
+     memory fits "did we define users before?".
+   → verify: every role in the list has a `file:line` or a doc path.
 
-2. **Interview per role** (AskUserQuestion, batched, ≤4 roles per round):
-   - Primary goal: the ONE job this role hires the system for
-   - Top 3 jobs-to-be-done (concrete flows)
-   - Permissions: what they can and explicitly canNOT do/see
-   - Technical skill + context (device, environment, frequency of use)
-   - Stakes: what failure costs them (time? money? patients? compliance?)
-   Offer evidence-derived defaults for each answer so the user can confirm
-   fast instead of composing from scratch.
+2. **Check the list with the user.** Show it; ask what is missing or wrong:
+   "Who else uses this system? Anyone easy to forget — internal admins, API
+   consumers, auditors?" Never invent a role that neither the evidence nor
+   the user gave you.
+   → verify: the user confirmed the final role list.
 
-3. **Write one persona per role** — same overlay shape as the plugin
-   personas so every consumer reads them identically:
+3. **Interview per role** (AskUserQuestion, at most 4 roles per round). For
+   each, offer a default drawn from the evidence so the user can confirm fast:
+   - Primary goal: the ONE thing this role uses the system for
+   - Top 3 jobs to be done (concrete flows)
+   - Permissions: what they CAN and explicitly CANNOT do or see
+   - Skill and context (device, environment, how often they use it)
+   - Stakes: what a failure costs them (time, money, patients, compliance…)
+   → verify: every role has an answer (or a confirmed default) for all five.
+
+4. **Write one persona per role** at `<memory>/personas/<role-slug>.md`, in
+   the same shape as the plugin personas so every reader handles them alike:
 
    ```markdown
    ---smithy
@@ -51,47 +71,60 @@ from the plugin's generic masters/patrons, which they complement.
    unit: <role-slug>
    artifacts: []
    key_facts:
-     - "project persona — generated by commission, source: <spec|code file:line|user>"
+     - "project persona — written by commission, source: <spec | code file:line | user>"
    concerns: []
-   next_action: "use in wield persona mode / guild patron-end-user"
+   next_action: "use in wield persona mode / guild (patrons/end-user.md plays it)"
    ---
    # <Role name>
-   <2-3 sentences: who they are, skill level, context, frequency>
+   <2–3 sentences: who they are, skill level, context, how often>
    ## Primary goal
    ## Jobs to be done
-   1. <flow: steps the persona actually takes>
+   1. <flow: the steps this persona really takes>
    ## Permissions
-   - CAN: ...
-   - CANNOT: ...  (these become cross-persona security checks)
+   - CAN: …
+   - CANNOT: …   (each one becomes a cross-persona security check)
    ## What frustrates me
    ## Severity calibration (from MY stakes)
-   <what Critical/High mean for this persona — e.g. for a nurse persona,
-   a wrong medication display is Critical even if the code "works">
+   <what Critical/High mean for this persona — for a nurse, a wrong
+   medication display is Critical even if the code "works">
    ```
+   → verify: `envelope.sh get <file> kind` prints `persona` for each file.
 
-4. **Idempotency + coverage check.** Re-running updates existing personas in
-   place (preserve user-stated facts; refresh code-derived ones). Diff the
-   role evidence against existing persona files: roles in code with NO
-   persona get flagged; personas whose role vanished from code get flagged
-   as possibly stale — ask, don't delete.
+5. **Re-runs and coverage.** A re-run updates files in place: keep what the
+   user said; refresh what came from code. Compare the role evidence with the
+   persona files: a role in code with no persona → flag it; a persona whose
+   role is gone from code → flag it as maybe stale. Ask; never delete.
+   → verify: the flag list was shown (or "none").
 
-5. **Log.** `ledger.sh append commission <slug-or-'-'> personas DONE $SMITHY_MEM/personas/`
-   and a ≤3-line decisions.md entry naming the roles covered.
+6. **Log** — `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append commission <slug> personas DONE personas/`
+   and a ≤3-line `decisions.md` entry naming the roles covered.
+   → verify: the ledger line exists.
 
-## Consumers (tell the user at exit)
+## Who uses these personas (tell the user at the end)
 
-- `/smithy:wield` persona mode: QA flows derived and run PER persona, inside
-  their permission boundaries, plus cross-persona checks (a CANNOT that
-  succeeds is Critical).
-- `/smithy:guild`: patron-end-user embodies these personas instead of a
-  generic user.
+- `/smithy:wield` persona mode: QA flows run PER persona, inside its
+  permissions, plus cross-persona checks (a CANNOT that succeeds is Critical).
+- `/smithy:guild`: `${CLAUDE_PLUGIN_ROOT}/references/personas/patrons/end-user.md` plays these
+  personas instead of a generic user.
+
+## Done when
+
+- [ ] every role cites a `file:line`, a doc path, or "user said"
+- [ ] the user confirmed the role list
+- [ ] one persona file per role, each with CAN/CANNOT and severity calibration
+- [ ] coverage flags shown (missing or maybe-stale personas), nothing deleted
+- [ ] ledger line and decisions.md entry written
+
+## Output
+
+`<memory>/personas/<role-slug>.md` (one per role).
+
+`Next: /smithy:wield — QA the app once per persona`
 
 ## Red flags
 
 | Thought | Reality |
 |---|---|
-| "The roles are obvious from the code" | Code shows permissions, not goals or stakes. The interview is where testing value comes from. |
-| "One generic 'user' persona is enough" | Then wield tests one viewpoint and misses every permission boundary. Boundaries live BETWEEN personas. |
-| "I'll fill in plausible stakes myself" | Invented stakes = invented severity calibration = miscalibrated QA. Ask. |
-
-Handoff: "Personas at `$SMITHY_MEM/personas/` — run `/smithy:wield` for per-persona QA."
+| "The roles are obvious from the code" | Code shows permissions, not goals or stakes. The interview is where the testing value comes from. |
+| "One generic 'user' persona is enough" | Then QA sees one viewpoint and misses every permission boundary. Boundaries live BETWEEN personas. |
+| "I'll fill in likely stakes myself" | Made-up stakes mean made-up severities, and QA judges wrong. Ask. |

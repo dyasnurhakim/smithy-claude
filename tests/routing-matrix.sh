@@ -144,5 +144,15 @@ g "--dump shows harness"               "harness:"     bash $S/routing.sh --dump
 g "--dump lists config layers"         "config layer" bash $S/routing.sh --dump
 bash $S/routing.sh nonsense-role >/dev/null 2>&1 && { echo "FAIL! unknown role should exit nonzero"; fails=$((fails+1)); } || echo "PASS  unknown role exits nonzero"
 
+echo "--- renamed tdd_commits values ---"
+rm -f "$GC" "$PC"
+t "tdd_commits default is clean"        "clean"   bash $S/config.sh get implementation.tdd_commits
+echo '{"implementation":{"tdd_commits":"git"}}' > "$GC"
+t "old 'git' reads as stages"           "stages"  bash $S/config.sh get implementation.tdd_commits
+e "old 'git' prints a rename note"      "old name" bash $S/config.sh get implementation.tdd_commits
+echo '{"implementation":{"tdd_commits":"local"}}' > "$PC"
+t "old 'local' (project) reads as clean" "clean"  bash $S/config.sh get implementation.tdd_commits
+rm -f "$GC" "$PC"
+
 echo "=== FAILURES: $fails ==="
 exit $fails

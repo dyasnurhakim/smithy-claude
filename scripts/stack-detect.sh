@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# stack-detect.sh — sniff a project's stack from lockfiles/configs.
-# Run from anywhere inside the project. Prints one line, e.g.:
+# stack-detect.sh — guess a project's stack from its lockfiles and config files.
+# Run it from anywhere inside the project. Prints one line, e.g.:
 #   stack=ts pkg=pnpm unit=vitest e2e=playwright
 #   stack=python pkg=uv unit=pytest e2e=none
 #   stack=go pkg=gomod unit=gotest e2e=none
@@ -23,8 +23,8 @@ if [ -f package.json ]; then
   elif [ -f yarn.lock ];          then pkg=yarn
   elif [ -f package-lock.json ];  then pkg=npm
   else pkg=npm; fi
-  # dep sniffing needs python3; without it, degrade gracefully to config-file
-  # detection only (has_dep always false — never abort stack detection)
+  # Reading package.json deps needs python3. Without it, use config files only
+  # (has_dep is always false) — never stop the detection.
   has_dep() {
     command -v python3 >/dev/null 2>&1 || return 1
     python3 -c "
@@ -55,15 +55,15 @@ elif [ -f go.mod ]; then
 elif [ -f pom.xml ]; then
   stack=java; pkg=maven; unit=junit
 elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
-  # Kotlin/Groovy Gradle projects both route through the java playbooks
+  # Kotlin and Groovy Gradle projects both use the java playbooks
   stack=java; pkg=gradle; unit=junit
 # --- Rust ---
 elif [ -f Cargo.toml ]; then
   stack=rust; pkg=cargo; unit=cargotest
 fi
 
-# Multi-stack hint: list other detected manifests so callers know to confirm
-# with the user instead of trusting first-match precedence blindly.
+# More than one stack? List the other manifests found (also=...), so the caller
+# checks with the user instead of blindly trusting the first match above.
 also=""
 [ "$stack" != js ] && [ "$stack" != ts ] && [ -f package.json ] && also="$also,js"
 [ "$stack" != python ] && { [ -f pyproject.toml ] || [ -f requirements.txt ]; } && also="$also,python"

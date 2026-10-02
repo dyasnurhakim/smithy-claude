@@ -1,7 +1,7 @@
 ---
-description: "Evidence-cited session handoff so the next session resumes with zero re-discovery (alias of smithy:handover)"
+description: "Session handoff where every claim cites evidence, so the next session resumes with no re-discovery (alias of smithy:handover)"
 argument-hint: "[same arguments as /smithy:handover]"
 ---
 
-This command is a technical alias. Invoke the `smithy:handover` skill with the
-Skill tool NOW and follow it exactly. Arguments to pass through: $ARGUMENTS
+This command is a short name (an alias). Run the `smithy:handover` skill with
+the Skill tool NOW and follow it exactly. Pass these arguments through: $ARGUMENTS

@@ -1,36 +1,39 @@
 #!/usr/bin/env bash
-# ledger.sh — single writer/reader for the smithy per-project event ledger.
+# ledger.sh — the ONE script that writes and reads the smithy ledger (the
+# project's event log: one line per event).
 #
 # Usage:
 #   ledger.sh append <phase> <job> <unit> <status> <artifact-path>
-#   ledger.sh tail [n]          (default 20; lane events merged over project's)
-#   ledger.sh last <phase>      (most recent line for a phase, merged view)
-#   ledger.sh where             which file is appended, which files are read
+#   ledger.sh tail [n]          last n lines (default 20; lane + project events, merged)
+#   ledger.sh last <phase>      newest line for one phase (merged view)
+#   ledger.sh where             which file gets appended, which files are read
 #
-# Line format (pipe-delimited, one line per event):
+# Line format (fields split by " | ", one line per event):
 #   2026-07-06T10:22Z | forge | user-auth | task-2 | DONE | jobs/user-auth/reports/task-2-impl.md
 set -euo pipefail
 
-# Resolve via paths.sh: one ledger per PROJECT, anchored on the MAIN worktree.
-# (Deriving it from --show-toplevel used to split the ledger during a parallel
-# forge batch — each linked worktree would have written its own.)
+# paths.sh finds the file: one ledger per PROJECT, tied to the MAIN worktree.
+# (Finding it with --show-toplevel used to split the ledger in a parallel forge
+# batch — each linked worktree wrote its own.)
 #
-# LANES refine that: when a lane is active, APPENDS go to the lane's own
-# ledger so concurrent units never interleave, but READS return the lane's
-# events merged over the project's in timestamp order. A controller resuming
-# inside a lane after compaction must see the whole history, not just the
-# slice its lane happened to produce. scripts/lane.sh merge folds the lane
-# ledger into the project one permanently.
+# With a LANE active:
+#
+#   append ──▶ lanes/<name>/ledger.md     (parallel work never mixes lines)
+#   read   ◀── ledger.md + lane ledger, merged in timestamp order
+#
+# A controller that resumes inside a lane (for example after compaction) must
+# see the whole history, not only its lane's part. `lane.sh merge` later moves
+# the lane's lines into the project ledger for good.
 # shellcheck source=./paths.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"
 LEDGER="$SMITHY_STATE_DIR/ledger.md"
 MAIN_LEDGER="$SMITHY_MEM/ledger.md"
 
-# The read view: project events + lane events, timestamp-ordered. Identical to
-# the merged file lane.sh will eventually write, so resume decisions taken
-# inside a lane match the ones taken after it lands.
-# Only ever cats files that exist: this script runs under `set -e -o pipefail`,
-# where a `cat` of a not-yet-created ledger would abort the whole call.
+# The read view: project events + lane events, in timestamp order. It equals
+# the file lane.sh merge will write later, so a resume decision made inside a
+# lane matches the one made after the lane lands.
+# Only cat files that exist: this script runs under `set -e -o pipefail`, where
+# a `cat` of a ledger that does not exist yet would stop the whole call.
 ledger_view() {
   local files=""
   [ -f "$MAIN_LEDGER" ] && files="$MAIN_LEDGER"
@@ -66,8 +69,8 @@ case "${1:-}" in
   last)
     [ $# -eq 2 ] || { echo "usage: ledger.sh last <phase>" >&2; exit 2; }
     if [ -f "$LEDGER" ] || [ -f "$MAIN_LEDGER" ]; then
-      # `|| true`: no match is a normal answer, not a failure — and pipefail
-      # would otherwise turn an empty grep into a silent non-zero exit.
+      # `|| true`: no match is a normal answer, not a failure. Without it,
+      # pipefail would turn an empty grep into a quiet non-zero exit.
       line="$(ledger_view | grep -F " | $2 | " | tail -n 1 || true)"
       [ -n "$line" ] && echo "$line" || echo "(no $2 events yet)"
     else

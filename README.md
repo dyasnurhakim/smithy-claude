@@ -1,8 +1,11 @@
 # smithy 🔨
 
-A self-contained Claude Code plugin that runs a **full development pipeline** — research → planning → implementation → review → debugging → testing — with a hard "never assume, never hallucinate" constitution, per-project memory, and **dynamic model routing** (choose which Claude model and effort level each pipeline role uses, per project).
+Smithy is a Claude Code plugin that runs a **full development pipeline**:
+research → plan → build → review → debug → test. The names come from a blacksmith's shop: you *assay* the ore, draw a *blueprint*, *forge* the piece, *inspect* it, *anneal* out the defects, and *temper* it until it holds. Three core ideas:
 
-Blacksmith-themed: you *assay* the ore, draw a *blueprint*, *forge* the piece, *inspect* it, *anneal* out the defects, and *temper* it until it holds.
+- **Never assume.** When something is unclear, smithy asks you. It does not guess.
+- **Per-project memory.** Every job leaves a spec, a plan, reports and an event log on disk, so work survives a crash.
+- **Model routing.** You choose which model and effort level each role uses (planning, review, …), per project or for all projects.
 
 ## Install
 
@@ -18,310 +21,282 @@ Or from a local clone:
 /plugin install smithy@smithy-claude
 ```
 
-Restart the session (or `/plugin` → enable) and you're set — the SessionStart hook announces smithy and its routing rules in every new session.
+Restart the session (or `/plugin` → enable). A SessionStart hook then announces smithy and its routing rules in every new session.
 
 ### Codex CLI / Codex App (GPT-5.6)
 
-Smithy runs under OpenAI's Codex too. Two ways in:
-
-**Via the Codex plugin marketplace** (once listed — the repo ships marketplace-ready):
+Smithy also runs under OpenAI's Codex. Two ways in. **1. Codex plugin marketplace** (once listed):
 
 ```
 /plugins        # in Codex — search "smithy", Install Plugin
 ```
 
-Codex plugins install from the [official marketplace](https://github.com/openai/plugins); listing requires a submission PR. This repo is packaged for it: `.codex-plugin/plugin.json` (interface manifest), skills surfaced natively, and `scripts/sync-to-codex-plugin.sh` stages the exact plugin tree and opens the submission PR from your fork (`--stage-only` to inspect the tree locally first).
+Codex plugins install from the [official marketplace](https://github.com/openai/plugins); a listing needs a submission PR. The repo is ready for it: `.codex-plugin/plugin.json` is the manifest, and `scripts/sync-to-codex-plugin.sh` builds the plugin tree and opens the PR from your fork (`--stage-only` builds it locally first).
+**2. Manual (works today):** clone the repo. Codex reads `AGENTS.md` (the entry file) on its own.
 
-**Manual (works today):** clone the repo — Codex picks up `AGENTS.md` (the harness entrypoint) automatically.
-
-Either way: enable subagents (`~/.codex/config.toml` → `[features] multi_agent = true`) and set the harness once per project — `"harness": "codex"` via the calibrate skill (project or global layer). Model routing translates automatically: flagship roles get `sol`, workhorse roles `terra`, mechanical `luna`; older generations (`gpt-5.5`, `gpt-5.4`, …) can be set per role as explicit ids. Full adaptation rules (dispatch mapping, what degrades — notably: plugin hooks don't run there, so the git guard is prompt-level) live in `references/harness.md`. **Status: structurally faithful to the proven superpowers adapter — not yet live-tested under Codex, and not yet submitted to the marketplace (smithy is under active development; the sync script runs when it's time).**
+Either way: turn on subagents (`~/.codex/config.toml` → `[features] multi_agent = true`) and set `"harness": "codex"` once with the calibrate skill. Models then translate on their own: flagship roles get `sol`, workhorse roles `terra`, simple jobs `luna`; older ids (`gpt-5.5`, `gpt-5.4`, …) can be set per role. **No hooks run under Codex**, so the git guard, routing and the MCP "ask first" rule are rules in the prompt, not enforced. Details: `references/harness.md`. **Status:** built to match a proven adapter, but not yet live-tested under Codex and not yet submitted to the marketplace.
 
 ## Usage
 
-### The one command
+**One command** runs the whole pipeline, with an approval gate between phases. **Or run each phase yourself** — every skill works on its own (see [What each skill needs](#what-each-skill-needs)):
 
 ```
 /smithy build a password-reset flow with email verification
+/smithy:assay add rate limiting to the public API   # research → spec (asks about every unclear point)
+/smithy:blueprint                                   # spec → plan + one brief per task
+/smithy:forge                                       # build task by task, then ONE review of the job
+/smithy:guild                                       # production-readiness panel
+/smithy:temper                                      # full test pass → READY / NOT READY
+/smithy:handover                                    # summary for the next session
+/smithy:strike fix the 3 findings from the review   # small known changes, no spec needed
+/smithy:anneal "POST /orders returns 500 when the cart is empty"   # find the cause before any fix
+/smithy:jig implement the discount calculator       # test-first, one clean commit per task
+/smithy:calibrate review=sonnet/medium              # change model routing
 ```
 
-That runs the whole pipeline with approval gates. You'll be asked questions instead of smithy assuming answers — that's the core design.
-
-### Or drive each phase yourself
+### Example — a full run
 
 ```
-/smithy:assay add rate limiting to the public API     # research → spec (asks about every ambiguity)
-/smithy:blueprint                                     # spec → verify-annotated plan + task briefs
-/smithy:forge                                         # implement task-by-task (review after each task)
-/smithy:guild                                         # production-readiness persona panel
-/smithy:temper                                        # full test pass → READY / NOT READY
-/smithy:handover                                      # evidence-cited summary for the next session
+you   > /smithy add CSV export to the reports page
+
+ASSAY      asks instead of guessing: "Which columns? All report types?
+           Max rows — stream or cap? Who may export?"
+           → $SMITHY_MEM/jobs/csv-export/spec.md        (open questions: none)
+GATE       "Spec ready — approve, revise, or abort?"            [you: approve]
+BLUEPRINT  4 tasks, each step with a check:
+           "2. Add /reports/:id/export → verify: curl returns text/csv"
+           → plan.md + briefs/task-1..4.md
+GATE       "Approving this plan allows its task commits."       [you: approve]
+FORGE      task-1..4: jigsmith writes failing tests (RED), then code (GREEN),
+           self-checks, makes ONE commit per task. tdd-snap pictures prove
+           the order. Then ONE inspector reviews the whole job (BASE..HEAD):
+           APPROVED.
+GUILD      diff touches UI + API → engineer, security, qa, uiux, end-user,
+           product review in parallel.
+           NOT_READY — security: export is missing the role check (Critical).
+           → /smithy:strike fixes it (bug → test first) → PRODUCTION_READY
+TEMPER     ring-test PASS · wield 91/100 PASS · proof skipped (no SLO change)
+           → READY
+GATE       "Ship it?"                                           [you: approve]
+           → commit grant removed. A push still needs its own yes.
 ```
 
-Useful standalone:
-
-```
-/smithy:anneal "POST /orders returns 500 when the cart is empty"   # RCA before any fix
-/smithy:jig implement the discount calculator                      # test-first (RED→GREEN, evidence enforced)
-/smithy:wield                                                      # QA the app like a user (health score 0-100)
-/smithy:commission                                                 # define who uses this system → test personas
-/smithy:calibrate review=sonnet/medium                             # change model routing per project
-```
-
-### Example workflow — what a full run actually looks like
-
-```
-you    > /smithy add CSV export to the reports page
-
-ASSAY    smithy restates the goal, then asks instead of assuming:
-         "Which columns? All report types or just tabular ones? Max rows —
-         stream or cap? Who may export (role check)?"
-         → $SMITHY_MEM/jobs/csv-export/spec.md   (open questions: none)
-
-GATE     "Spec ready — approve, revise, or abort?"           [you: approve]
-
-BLUEPRINT 4 tasks, every step verify-annotated:
-         "2. Add /reports/:id/export endpoint → verify: curl returns
-          text/csv with header row"
-         → plan.md + briefs/task-1..4.md
-GATE     "Approving this plan authorizes its task commits."  [you: approve]
-         → commit grant written (guard hook now allows task commits)
-
-FORGE    task-1: jigsmith (TDD mode) — failing test committed (RED),
-         minimal impl (GREEN), inspector reviews the diff against the brief:
-         APPROVED. task-2 … task-4 likewise. One rejected task gets one fix
-         cycle, re-review, APPROVED.
-
-GUILD    diff touches UI + API → roster: master-engineer, master-security,
-         master-qa, master-uiux, patron-end-user, patron-product (parallel).
-         Verdict: NOT_READY — security: export endpoint missing the role
-         check the spec promised (Critical, confidence 9).
-         → fix brief → forge → security re-reviews → PRODUCTION_READY
-
-TEMPER   ring-test PASS · wield 91/100 PASS · proof skipped (no SLO change)
-         → temper-summary.md: READY
-
-GATE     "Ship it?"                                          [you: approve]
-         → commit grant revoked. Push? Only if you say so — a push needs
-         its own yes, every time.
-
-/smithy:handover → handoff.md; next session resumes from the ledger even
-after a crash or compaction.
-```
-
-Everything the run produced lives under `$SMITHY_MEM` (in your repo or outside it, your choice — see [Per-project memory](#per-project-memory)) — spec, plan, briefs, every agent report, an append-only ledger, and a ≤40-line STATE.md. Kill the session at any point; `/smithy` recomputes its position from the ledger, not from memory.
+Everything the run made lives in `$SMITHY_MEM` (see [Per-project memory](#per-project-memory)). Kill the session at any point: `/smithy` finds its place again from the ledger, not from memory.
 
 ## Skills
 
+Every skill has a plain alias: `/smithy:plan` = `/smithy:blueprint`, `/smithy:qa` = `/smithy:wield`, and so on.
+
 | Skill | Alias | What it does |
 |---|---|---|
-| `/smithy:smithy` | `pipeline` | **Orchestrator** — runs the whole pipeline with approval gates at phase boundaries |
-| `/smithy:assay` | `research` | **Research** — explores the codebase, converts every would-be assumption into a question or recommendation, writes a spec |
-| `/smithy:blueprint` | `plan` | **Planning** — turns the spec into a verify-annotated task plan + per-task briefs |
-| `/smithy:forge` | `implement` | **Implementation** — dispatches the forger (or jigsmith, in TDD mode) per task, with a review after each task |
-| `/smithy:jig` | `tdd` | **TDD implementation** — RED→GREEN→REFACTOR per requirement with verbatim failing-test evidence; forge's `implementation.tdd` config chooses jig vs plain forge |
-| `/smithy:inspect` | `code-review` | **Code review** — two verdicts: spec compliance + code quality; findings carry severity and 1–10 confidence |
-| `/smithy:guild` | `review-panel` | **Production-readiness panel** — parallel persona reviewers (masters judge craft, patrons judge experience) → one PRODUCTION_READY / NOT_READY verdict |
-| `/smithy:commission` | `personas` | **Project personas** — generates test personas from your system's real user roles; powers per-persona QA in wield and the guild's end-user judgment |
-| `/smithy:pattern` | `design` | **Design creation** — deliberate style direction with visual previews, tokens, states, motion, voice → `$SMITHY_MEM/DESIGN.md`, the design source of truth |
-| `/smithy:burnish` | `design-review` | **Design review & improvement** — screenshots the live UI, judges against DESIGN.md (or declared heuristics), then applies surgical fixes with before/after proof |
-| `/smithy:strike` | `fix` | **One-shot fixes** — small known changes: lightweight plan → one confirmation → forge (no TDD) → targeted tests → one report |
-| `/smithy:anneal` | `debug` | **Debugging** — reproduce → root-cause analysis → approved minimal fix + regression test. Never guess-fixes |
-| `/smithy:temper` | `test` | **Testing umbrella** — runs the four test skills below, produces one READY / NOT READY verdict |
-| `/smithy:ring-test` | `unit-test` | **Unit tests** (ring test = tapping metal to hear flaws) |
-| `/smithy:wield` | `qa` | **QA / functional testing** — severity tiers, 0–100 health score, cross-run trend fingerprints |
-| `/smithy:proof` | `stress-test` | **Stress / load testing** (proofing = deliberate overload) — you set the SLOs, it never invents them |
-| `/smithy:hone` | `perf-test` | **Performance** — baseline-first benchmarking, median of ≥3 runs, recommendations only |
-| `/smithy:handover` | `handoff` | **Session handoff** — evidence-cited summary so the next session resumes with zero re-discovery |
-| `/smithy:calibrate` | `config` | **Model routing config** — view/edit which model + effort each role uses, TDD default, gates — like `/config` |
-| `/smithy:using-smithy` | — | **Router** — when to use which skill, priority rules, rationalization red-flags. Injected into every session by the SessionStart hook |
+| `smithy` | `pipeline` | Runs the whole pipeline, with gates between phases |
+| `assay` | `research` | Explores the code; turns every guess into a question; writes a spec |
+| `blueprint` | `plan` | Spec → plan where every step has a check, plus one brief per task |
+| `forge` | `implement` | Builds task by task (each self-checks, one commit), then ONE review of the job |
+| `jig` | `tdd` | Test-first: failing tests, then code, then one clean commit per task |
+| `inspect` | `code-review` | Two verdicts: matches the spec? good code? Each finding has severity and confidence 1–10 |
+| `guild` | `review-panel` | Persona reviewers in parallel → one PRODUCTION_READY / NOT_READY verdict |
+| `commission` | `personas` | Test personas from your system's real user roles |
+| `pattern` | `design` | Design system with visual previews → `DESIGN.md` |
+| `burnish` | `design-review` | Screenshots the live UI, judges it against `DESIGN.md`, makes small fixes with before/after proof |
+| `strike` | `fix` | Small known changes and review/QA fixes: mini plan → one yes → build → targeted tests → one review |
+| `anneal` | `debug` | Reproduce → find the root cause → approved minimal fix + regression test |
+| `temper` | `test` | Runs the four test skills below → one READY / NOT READY verdict |
+| `ring-test` | `unit-test` | Unit tests per the stack playbook |
+| `wield` | `qa` | QA as a user: screenshots, 0–100 health score, trend vs the last run |
+| `proof` | `stress-test` | Load test against thresholds YOU set (never invented) |
+| `hone` | `perf-test` | Benchmarks (median of ≥3 runs) and profiles; recommendations only |
+| `handover` | `handoff` | Summary with evidence so the next session starts fast |
+| `calibrate` | `config` | View/edit models, effort, TDD settings, gates, memory location |
+| `using-smithy` | — | The router: which skill when. Injected into every session |
 
-Aliases are plain slash commands: `/smithy:plan` = `/smithy:blueprint`, `/smithy:qa` = `/smithy:wield`, etc. Use whichever vocabulary fits your head.
+## What each skill needs
 
-## Parallel execution
+Every skill starts with `scripts/start.sh <skill>`. It finds (or creates) the memory folder, reads STATE.md and picks the job. A missing input from *another skill* never stops a skill: it falls back (asks a few questions, writes a small version, confirms it) and goes on. Only the "must have" column can stop a skill — there is nothing to test or review without it. Skills that need a running app read its start command and URL from one `run:` line in `decisions.md`; the first one to need it asks you once and saves it.
 
-Blueprint marks tasks `∥ batch-X` **only with proof of disjointness** (file sets listed in the plan, no cross-imports, no shared scaffolding — default is sequential). A marker is permission to *offer*, not to act: **forge asks you, per batch, parallel or sequential**.
+| Skill | Must have | Uses if present (else falls back) |
+|---|---|---|
+| smithy, assay, strike | your request | STATE.md, past specs, memory lookups |
+| blueprint | your request | `spec.md` — else asks a few questions first |
+| forge, jig | your request | `plan.md` + briefs — else writes one brief and confirms it |
+| inspect, guild | a diff (`--base <ref>`) | the plan — else a short brief from your words |
+| wield | a runnable app (the `run:` line) | personas, success criteria in the spec or plan |
+| proof | a running LOCAL service + your thresholds | the `run:` line |
+| burnish | a running LOCAL UI + Playwright | `DESIGN.md`, the `run:` line |
+| hone / ring-test | something to measure / code to test | a baseline / the stack playbook |
+| anneal | a failure and a way to reproduce it | earlier reports, the ledger |
+| calibrate, handover, commission, pattern | nothing else | STATE.md, the ledger |
 
-When you choose parallel: one **git worktree + branch per task** (`.smithy-wt-<repo>/` sibling dir), all agents dispatched in a single message, each branch reviewed *before* merging. Task branches merge into an **integration branch first** — the batch's combined verify commands and the test suite run there — and only a verified integration lands on your working branch (`--no-ff`). A merge conflict means the batch was mis-marked — clean abort and escalate, never hand-resolved. Everything stays **local**: no branch is pushed to origin unless you ask (each push needs its own yes). **Smithy always removes its own worktrees when the batch ends** (committed work survives on branches); worktrees *you* created are never auto-removed — it asks whether to clear or leave them.
+## How a job is built and reviewed
 
-### State lanes — isolation for the *state*, not just the code
+```
+before (≤0.13)                               now (0.14)
+review after EVERY task                      self-check per task, ONE review per job
+commit per TDD stage (test → feat → refactor) ONE commit per task; pictures prove the order
+```
 
-A worktree isolates the code. It does not isolate smithy's own state: memory is one dir per project (anchored on the main worktree, so there is exactly one ledger), which means N parallel agents would append to one `ledger.md` and overwrite one `STATE.md` — and `STATE.md` holds a single `Active job:` line.
+- **Self-check.** Each task ends with a short checklist: each requirement → `file:line`; only brief files touched; checks green; no debug code; TDD proof `OK`.
+- **One review.** After all tasks, one inspector reviews the whole job (`BASE..HEAD`). It does not trust the agents' reports; it checks them.
+- **Fix rounds.** A REJECTED review gets a fix round, and only the fix diff is reviewed again. After `implementation.max_fix_cycles` rounds (default 2), smithy stops and asks you.
+- **Fixes from reviews and QA** go to `/smithy:strike`. It needs no plan. Bug items go test-first.
 
-So every worktree also gets a **lane**: its own `STATE.md` / `ledger.md` / `decisions.md` under `$SMITHY_MEM/lanes/<job>-<task>/`. `worktree.sh create` opens it and drops a `.smithy-lane` marker in the checkout, so any smithy script run there resolves the lane automatically — the dispatched agent never has to know. Config, `jobs/`, personas and guard tokens stay project-wide (a lane is a unit of work, not a different set of preferences, and must never be able to mint itself a commit grant).
+### TDD (test-driven development: tests first, then code)
 
-**Reads merge, writes don't.** Inside a lane, `ledger.sh tail` shows the lane's events merged over the project's, so a session resuming after compaction sees the whole history — while its appends stay private.
+`scripts/tdd-snap.sh` takes a *picture* of the working folder after each stage. A picture is a git tree object (a saved snapshot of the files). It is not a commit, so HEAD, branches and the index are never touched. `tdd-snap.sh verify` then checks the order: RED added a test, GREEN added code, nothing changed after the last picture. The controller runs `verify` itself right after each task (inside the task's worktree for parallel work); it does not trust the agent. The final review re-checks the order with `verify --audit`. The full TDD rules live in one place: `skills/jig/SKILL.md`.
 
-**Combining is a sort, not a merge conflict.** The ledger is append-only with a leading ISO timestamp, so `lane.sh merge <lane>` (or `merge-all` once the batch has landed) folds events back in timestamp order — nothing lost, each lane's internal order preserved. Rolled-back work gets `lane.sh abandon` so its events never enter the ledger. Removing a worktree deliberately does *neither*: it reports the unmerged lane and leaves the call to you, because a checkout is disposable and an event log is not.
+| Setting (`implementation.*`) | Values | What it changes |
+|---|---|---|
+| `tdd` | **`ask`** · `always` · `never` | Use the test-first agent (jigsmith) or the plain forger. Bug fixes are always test-first |
+| `tdd_level` | `minimal` · **`balanced`** · `max` | How many tests. `max` works one requirement at a time. Fewer tests, never a different order |
+| `tdd_commits` | **`clean`** · `stages` | `clean` = one commit per task, tests + code together. `stages` = a commit per stage. Old names still work: `git` → `stages`, `local` → `clean` |
+| `max_fix_cycles` | number, **2** | Fix rounds after the review before smithy asks you. `0` = ask at once |
 
-This is also what makes **two whole pipelines in one repo** safe: give the second its own worktree (`worktree.sh create <job-b> pipeline`) and run it from there. Both read the shared history; neither can overwrite the other's position.
+## Parallel execution and state lanes
+
+Blueprint marks tasks `∥ batch-X` only when it can show they touch different files. **Forge asks you per batch:** parallel or one by one.
+
+```
+           ┌─ worktree task-2 ─ agent ─ self-check ─┐
+integrate ─┤                                         ├─▶ integration branch
+           └─ worktree task-3 ─ agent ─ self-check ─┘          │ checks + test suite here
+                                                               ▼ green
+                                        land on your branch ─▶ (one review later)
+```
+
+- One git worktree (a second checkout of the repo) per task; all agents start at once. Task branches merge into an **integration branch** first; only a green integration lands on your branch.
+- A merge conflict means the batch was not really separate: smithy stops and runs that task alone. It never resolves conflicts by hand. Nothing is pushed. Smithy removes its own worktrees at batch end; worktrees *you* made are never removed.
+
+**State lanes.** A worktree keeps the *code* apart, but not smithy's own state. So each worktree also gets a **lane**: its own STATE.md, ledger and decisions under `$SMITHY_MEM/lanes/<job>-<task>/`. Inside a lane, reading the ledger shows the project's events too; writes stay in the lane. When the work lands, `scripts/lane.sh merge` folds the events back in time order (`abandon` drops rolled-back work). This also lets two whole pipelines run in one repo: start the second from its own worktree (`worktree.sh create <job-b> pipeline`). Each lane keeps its own base sha. There is one commit grant per project, so a pipeline only removes a grant that names its own job.
 
 ## Agents
 
-Agent names follow their skill's verb: the *forger* forges, the *inspector* inspects, the *annealer* anneals, the *temperer* tempers, and the *jigsmith* shapes work against a jig (tests written first).
-
-| Agent | Default model | Tools | Role |
+| Agent | Default model | Can write files? | Role |
 |---|---|---|---|
-| `forger` | sonnet | Read, Grep, Glob, Bash, Write, Edit | Executes exactly one task brief; surgical changes only |
-| `jigsmith` | sonnet | Read, Grep, Glob, Bash, Write, Edit | TDD implementor: failing test first (RED, verbatim output) → minimal code (GREEN) → refactor, commit per stage |
-| `inspector` | opus | Read, Grep, Glob, Bash (read-only) | Two-verdict review; does not trust the forger's report; verifies TDD commit ordering |
-| `annealer` | opus | Read, Grep, Glob, Bash (read-only) | Root-cause analysis with reproduced evidence; never applies fixes |
-| `temperer` | sonnet | Read, Grep, Glob, Bash, Write, Edit | Writes/runs tests; may not touch production source |
+| `forger` | sonnet | yes | Builds ONE task brief; small exact changes; self-check; one commit |
+| `jigsmith` | sonnet | yes | Test-first builder; proves the order with tdd-snap; one commit |
+| `inspector` | opus | no (read-only) | Two-verdict review of the whole job; checks every claim |
+| `annealer` | opus | no (read-only) | Finds the root cause with evidence; never fixes |
+| `temperer` | sonnet | test files only | Writes and runs tests; never touches production code |
 
-## Dynamic model routing
+**Tools.** Agents have no `tools:` allow-list. They get your installed tools — MCP lookup tools included — minus a `disallowedTools` deny-list: no agent may dispatch agents, run skills, schedule jobs or publish artifacts, and the read-only two also lose Write and Edit. Why a deny-list: in Claude Code 2.1.x an `mcp__*` wildcard in `tools:` grants nothing (tested live), so an allow-list would cut agents off from MCP. Trade-off: a new built-in tool is allowed until it is added to the list. The default model is overridden by your routing config.
 
-Each pipeline role maps to a model + effort. Config merges across **three layers**, lowest precedence first — so "always use fable for review" is set once, globally, instead of per repo:
+**Inter-agent envelope.** Every brief, report and verdict starts with a small YAML header (`references/envelope.md`): kind, job, unit, status, confidence, `key_facts`, `concerns`, `next_action`. Open key facts are copied into the next brief, so important facts are not lost between agents. `scripts/envelope.sh` reads and checks it.
+
+## Lookup tools
+
+Agents and skills may use MCP tools (tools from servers you installed) to look things up faster than grep. **None are required**; without them smithy uses Read/Grep and says so.
+
+| Need | Tools that fit | Without one |
+|---|---|---|
+| memory — "did we do this before?" | claude-mem | ledger, decisions.md, `git log` |
+| graph — callers, structure, impact | understand-anything, graphify, claude-mem `smart_outline` | Grep + Read |
+| docs — library API for your version | context7 or another docs server | the installed package source |
+
+- **Reading is free. Changing asks first.** A tool that sends, creates, updates or deletes needs your yes, even when your own rules name it. **Small budget:** per run, at most 1 search, 1 timeline, 3 full records.
+- **A lookup is a lead, not a fact.** Trust order: code and `git log` > ledger > lookup results. Cloud sync and third-party providers are never turned on.
+
+## Hooks — three guards
+
+Prompt rules can be talked around; a hook's exit code cannot. Each hook fails in a different direction on purpose. All three act only in projects smithy manages. Your own `CLAUDE.md` rules still win over smithy wherever they conflict (creed §0).
+
+| Hook | Watches | When unsure | Does |
+|---|---|---|---|
+| `scripts/guard.sh` | Bash | **blocks** | Stops unsafe git and destructive commands |
+| `scripts/route-guard.sh` | subagent dispatch | **lets it through** | Fixes the model and effort to match your config |
+| `scripts/mcp-guard.sh` | MCP tool calls (`mcp__…`) | **asks you** | Makes Claude Code ask before an MCP tool changes anything |
+
+**guard.sh — git and destructive commands.**
+- `git push` needs a live yes per push. `git commit` needs the job's plan approval (a commit grant, removed when the job ends).
+- History rewrites (`--amend`, `rebase`, `reset --hard`, `branch -D`, `clean -f`, force flags): always blocked.
+- Destructive commands need your yes for that one command (`guard.sh allow-once` makes a one-use token): cloud deletes (`aws`, `gcloud`, `az`, `fly`, `heroku`, `vercel`), `terraform`/`pulumi`/`cdk destroy`, `docker rm|prune|compose down`, `kubectl delete`, `helm uninstall`, `DROP`/`TRUNCATE`/`DELETE` without `WHERE`, migration resets, `rm -rf` on absolute/`~`/`..` paths, `find -delete`, `rsync --delete`, `dd`, `mkfs`.
+- It targets destruction, not work: `DELETE … WHERE …`, `docker build`, `kubectl get`, `terraform plan` all pass.
+
+**route-guard.sh — routing that agents cannot ignore.** It reads each smithy dispatch, finds the role from the agent (forger/jigsmith → implementation, inspector → review, annealer → debugging, temperer → testing), and sets the model and the effort banner (a line in the prompt that sets how hard to think) to match config. Each fix is announced as `[smithy-route-guard] …`. On any error it lets the dispatch through: a slightly wrong model is better than a dead dispatch. `bash scripts/route-guard.sh table` shows what each agent will run as.
+
+**mcp-guard.sh — MCP changes ask first.** It reads the tool name from the call (a real JSON parse, so text inside the tool's input cannot fool it). A "change" word (send, create, update, delete, resolve, …), a bare `query` or anything with `sql` (SQL can write), or no known word → Claude Code asks you. A read word (search, get, list, read, …) → it says nothing and your normal permissions decide. It never says "allow". In a run with no one to ask (`claude -p`), "ask" means the call is refused.
+
+## Model routing
+
+Each role maps to a model and an effort. Config merges three layers, lowest first:
 
 | Layer | File | Scope |
 |---|---|---|
 | defaults | `<plugin>/defaults/config.json` | ships with smithy |
-| **global** | `$SMITHY_HOME/config.json` | **every project on this machine** |
-| **project** | `$SMITHY_MEM/config.json` | this project only |
+| global | `$SMITHY_HOME/config.json` (default `~/.smithy`) | every project on this machine |
+| project | `$SMITHY_MEM/config.json` | this project only |
 
-`$SMITHY_HOME` defaults to `~/.smithy` (honors `XDG_CONFIG_HOME`). Merging is per key, so a global model and a project effort combine on the same role.
+Merging is per key, so a global model and a project effort can combine on one role. The defaults name **tiers**, not models: planning, review and debugging = `flagship`/`high`; research, implementation and testing = `workhorse`/`medium`; mechanical = `fast`/`low`.
 
-The shipped defaults name **tiers**, not models:
+Change it with `/smithy:calibrate`, or in one line: `/smithy:calibrate review=fable/xhigh` (add `--global` for all projects). Effort is `low | medium | high | xhigh | max`; it becomes a banner in the agent's prompt, not an API setting.
 
-```json
-"routing": {
-  "planning":       { "model": "flagship",  "effort": "high"   },
-  "implementation": { "model": "workhorse", "effort": "medium" },
-  "review":         { "model": "flagship",  "effort": "high"   },
-  "debugging":      { "model": "flagship",  "effort": "high"   },
-  "testing":        { "model": "workhorse", "effort": "medium" },
-  "mechanical":     { "model": "fast",      "effort": "low"    }
-}
-```
+**Model names survive new releases.** The model list is data (`defaults/models.json`), not code. A model value can be:
 
-### Model values survive new releases
+1. a **tier**: `flagship` / `workhorse` / `fast`. Always maps to today's model for that tier.
+2. a **family**: `fable`, `opus`, `sonnet`, `haiku` (Claude); `sol`, `terra`, `luna` (Codex). Across harnesses it maps by tier, so `opus` under Codex becomes `sol`.
+3. **any id that matches the harness's patterns**: `claude-*`, `opus*`, … or `gpt-*`, `o[0-9]*`, `codex*`. Old ids and future ones (`claude-opus-6`) work with no smithy update.
+4. `inherit`: use the agent's own default.
 
-The registry is data (`defaults/models.json`), never a list inside a script. A value may be:
+A new family goes in `$SMITHY_HOME/models.json`. `scripts/routing.sh --models` lists what your harness accepts; `--dump` shows the table in effect and where each value came from. The list only checks spelling; **calibrate runs a live test before it saves a model**, because what is available depends on your account.
 
-1. a **tier** — `flagship` / `workhorse` / `fast`, resolved to the harness's current model for that tier. Stable across every future release.
-2. a **family name** — `fable`, `opus`, `sonnet`, `haiku` (claude); `sol`, `terra`, `luna` (codex). Cross-family values translate *by tier*, so `opus` under the codex harness resolves to `sol`.
-3. **any id matching the harness's patterns** — `claude-*`, `opus*`, `sonnet*`, `haiku*`, `fable*` under claude; `gpt-*`, `o[0-9]*`, `codex*` under codex. This covers older generations (`gpt-5.4-codex`) *and* ones that don't exist yet (`claude-opus-6`, `gpt-7`) with **no smithy update**.
-4. `inherit` — omit the model parameter; the agent's frontmatter default applies.
+## Personas
 
-A whole new family goes in `$SMITHY_HOME/models.json`, which deep-merges over the plugin registry. Run `/smithy:calibrate` or `scripts/routing.sh --models` to see what your active harness accepts; `--dump` shows the effective table with the layer that supplied each value.
+Reviews can fan out to **persona reviewers** running in parallel. **Masters** ask "is it built right?" (engineer, security, QA, UI/UX, designer, SRE). **Patrons** ask "is it the right thing?" (end-user, product, marketing, support). `/smithy:guild` picks the roster from the diff (engineer + security always). **PRODUCTION_READY** needs no Critical or High findings. Every finding needs proof: `file:line` + code, command output, or a screenshot (UI personas drive the app with Playwright). No proof → `cannot-verify`, not a finding. The verdict is written twice: `guild-verdict.md` for people, `guild-verdict.json` for CI and trend tools.
 
-The registry validates syntax only — **availability varies by account, so calibrate dispatches a live probe before writing any model value.** That split is what makes permissive patterns safe.
-
-The model is passed as the Agent tool's per-dispatch `model` parameter (overrides agent frontmatter). Effort is one of `low | medium | high | xhigh | max` and maps to an injected prompt banner — prompt-level guidance, not an API knob. Edit interactively with `/smithy:calibrate`, or one-shot: `/smithy:calibrate review=fable/xhigh` (add `--global` for all projects). The ladder lives in `defaults/models.json`, so `routing.sh --models` is always the authoritative list.
-
-TDD is a first-class, *choosable* path: `"implementation": { "tdd": "ask" | "always" | "never" }` decides whether forge dispatches the `jigsmith` (test-first, with RED→GREEN evidence) or the plain `forger`. Bug fixes always go test-first — the regression test is the RED.
-
-Three more dials tune *how* the loop runs (all via `/smithy:calibrate`, all layered like everything else):
-
-| Key | Values | What it does |
-|---|---|---|
-| `implementation.tdd_level` | `minimal` \| **`balanced`** \| `max` | Test breadth per requirement. `minimal` = one test — primary behaviour plus the likeliest bug, i.e. *"enough that the software demonstrably works"*. `balanced` adds realistic edge and error paths. `max` is exhaustive, adversarial cases included. It cuts test **count**, never the RED→GREEN ordering. |
-| `implementation.tdd_commits` | **`git`** \| `local` | `git` commits every stage (`test:` → `feat:`). `local` commits **nothing** — changes stay in the working tree and each stage is appended to a stage log. Good for scratch worktrees, clean histories, or when no commit grant exists. The honest trade: commit ordering is the only TDD evidence the controller can verify *independently*, so `local` leaves the inspector reading the agent's own account. |
-| `implementation.max_fix_cycles` | int, default **`2`** | Review→fix re-dispatches per task before smithy stops and escalates to you. Applies to the plain forger too. `0` = escalate on the first REJECTED. |
-
-## Personas — the guild and its patrons
-
-Reviews can fan out to **parallel persona reviewers** (one inspector agent, different persona overlays):
-
-- **Masters** (craft — is it built right?): engineer, security, QA, UI/UX, designer (identity & distinctiveness — the anti-template judge), SRE
-- **Patrons** (experience — is it the right thing?): end-user, product, marketing, support
-
-`/smithy:guild` selects the roster by diff content (engineer + security always; the rest conditional), dispatches them in parallel, dedupes and cross-verifies findings, and issues one verdict: **PRODUCTION_READY** requires both craft and experience clean of Critical/High. `/smithy:commission` adds **project-level personas** (your system's actual roles — e.g. patient, receptionist, admin) that wield uses to run QA flows per role, including cross-persona permission checks.
-
-**Personas overlay every agent, not just reviewers** (`references/persona-modes.md`): the same persona file is a *judgment lens* for the inspector, *build constraints* for the forger/jigsmith (master-engineer rides every implementation task, plus at most one domain specialist), a *test lens* for the temperer (qa on unit tests, end-user/support on QA, sre on stress), and an *investigation lens* for the annealer (picked by symptom domain). Blueprint tags each task brief with its personas automatically.
-
-**Every finding must carry proof.** The inspector's evidence contract: file evidence (`file:line` + the offending excerpt), command evidence (verbatim output), or **screenshot evidence** — when the diff is user-facing and the app is runnable, UI-facing personas (UI/UX, end-user, marketing, support) drive it headlessly with Playwright and save screenshots to `$SMITHY_MEM/jobs/<job>/reports/guild-evidence/<persona>/`. Each finding states *why* it's flagged and *why* it got its severity (tied to the persona's calibration). No proof → it's reported as `cannot-verify`, not as a finding. The verdict ships twice: human-readable `guild-verdict.md` and machine-readable `guild-verdict.json` (findings with fingerprint, severity + reason, evidence path, fix — ready for CI or trend tooling).
-
-## Git guard rails
-
-A deterministic PreToolUse hook (`scripts/guard.sh`) enforces git safety in smithy-managed projects — prompt rules can be rationalized away, exit codes can't:
-
-- `git push` — blocked; needs a live user yes per push (one-shot token)
-- `git commit` — blocked unless the job's plan gate was approved (approval = job-scoped commit grant, auto-revoked at job end)
-- History rewrites (`--amend`, `rebase`, `reset --hard`, `branch -D`, `clean -f`, force flags) — always blocked
-- **Destructive operations** — blocked unless the user approves that specific command (then `guard.sh allow-once` mints a token consumed by exactly one command):
-  - *Cloud*: `aws … terminate-instances`/`delete-*`/`s3 rb|rm`, `gcloud … delete`, `gsutil rm|rb`, `az … delete`, `fly destroy`, `heroku destroy|pg:reset`, `vercel remove`
-  - *IaC*: `terraform destroy`, `pulumi destroy|stack rm`, `cdk destroy`
-  - *Containers*: `docker rm|rmi|prune|volume rm|compose down`, `kubectl delete|drain`, `helm uninstall`
-  - *Databases*: `DROP`/`TRUNCATE`/`ALTER … DROP` via any client (psql/mysql/sqlite3/mongo/…), `DELETE FROM` without `WHERE`, `dropdb`, `redis-cli flushall|flushdb`, mongo `dropDatabase`, and migration resets (`prisma migrate reset`, `rails db:drop|reset`, `artisan migrate:fresh|reset`, Django `flush`, `alembic downgrade base`)
-  - *Filesystem*: `rm -rf` on absolute/`~`/`..` paths, `find -delete`, `rsync --delete`, `shred`, `dd of=/dev/*`, `mkfs`, `truncate -s 0`
-- Non-smithy projects: the hook stands down entirely
-- Your own `CLAUDE.md` rules override smithy protocol wherever they conflict (creed §0)
-
-`DELETE FROM logs WHERE created_at < …` passes; `DELETE FROM logs` does not. `docker build`/`compose up`/`kubectl get`/`aws s3 ls`/`terraform plan` all pass — the guard targets destruction, not operations. 57-case test matrix in the repo history.
-
-## Routing guard rails
-
-Configured routing that an agent can quietly ignore isn't configuration, it's a suggestion. A second PreToolUse hook (`scripts/route-guard.sh`) makes the routing table binding: it inspects every smithy subagent dispatch and **rewrites it to match config** before it runs.
-
-- **Model** — injected when missing (otherwise the subagent silently inherits the session model), corrected when it doesn't match `routing.<role>.model`
-- **Effort** — effort isn't an API parameter, it's a banner in the prompt; the hook strips any wrong or stale banner and prepends the one `routing.<role>.effort` calls for
-- **Role** comes from the agent (`forger`/`jigsmith`→implementation, `inspector`→review, `annealer`→debugging, `temperer`→testing). A brief can pin a different one with `smithy-role: <role>` — that's the only sanctioned override, and it selects a *role*, never a raw model
-- Every correction is announced in-context as `[smithy-route-guard] …`, so a drifting controller is visible rather than silently fixed
-- **Fails open, deliberately.** The git guard blocks on doubt because the risk is a destroyed repo; here the risk is a slightly-wrong model, and killing a dispatch is the worse outcome — so a malformed payload, a missing `python3`, or any internal error lets the dispatch through untouched
-- Untouched: non-smithy agents, other plugins' agents, and every project without smithy memory
-- Two cases it reports instead of fixing (both mean "this config can't dispatch here"): a routed model the harness won't accept as a dispatch value, and a config whose `harness` isn't the one running. The banner is still enforced in both
-
-`bash scripts/route-guard.sh table` prints what each agent will actually run as. Change routing with `/smithy:calibrate` — never at the dispatch call. 42-case test matrix (`tests/route-guard-matrix.sh`).
-
-No hooks run under Codex CLI, so there routing is advisory again — `references/harness.md` says so explicitly rather than implying parity.
-
-## Inter-agent envelope
-
-Every brief/report/verdict opens with a machine-readable YAML envelope (`references/envelope.md`): kind, job, unit, status, confidence, `key_facts[]`, `concerns[]`, `next_action`. Controllers copy unresolved key facts forward into the next brief — critical information survives every hop instead of dying in prose. `scripts/envelope.sh` parses and validates it.
+Personas also shape the other agents (`references/persona-modes.md`): build rules for the forger/jigsmith, a test lens for the temperer, an investigation lens for the annealer. `/smithy:commission` adds **project personas** (your real roles, e.g. patient, receptionist, admin) that wield uses for QA per role.
 
 ## Supported stacks
 
-The testing family (`ring-test`, `wield`, `proof`, `hone`) detects the project's stack from its manifests and follows a per-stack playbook:
+The test skills detect the stack from its manifest files (`scripts/stack-detect.sh`) and follow a playbook per stack. Several stacks in one repo → smithy asks which one the job is for. An unknown stack → generic rules and a test command you confirm, never a guessed toolchain.
 
 | Stack | Detected via | Unit | QA | Stress | Perf |
 |---|---|---|---|---|---|
-| TS/JS | package.json + lockfiles | vitest/jest | Playwright / supertest | autocannon, k6 | `node --cpu-prof`, vitest bench |
-| Python | pyproject/requirements | pytest | httpx test clients | locust | cProfile, pytest-benchmark |
-| Go | go.mod | `go test` (+`-race`) | httptest in-process | autocannon + pprof monitoring | `go test -bench` + pprof |
-| Java/JVM | pom.xml, build.gradle[.kts] | JUnit via mvn/gradle | MockMvc / TestRestTemplate | autocannon + jcmd/JFR (JIT warm-up enforced) | JMH or JFR |
-| Rust | Cargo.toml | `cargo test` | axum/actix test utils | autocannon + RSS/fd monitoring (release builds enforced) | criterion / perf |
-
-Mixed repos (multiple manifests) are flagged with an `also=` hint and the skill asks which stack the job targets. Unknown stacks fall back to generic rules and a confirmed test command — never a guessed toolchain.
+| TS/JS | package.json | vitest/jest | Playwright / supertest | autocannon, k6 | `node --cpu-prof`, vitest bench |
+| Python | pyproject / requirements | pytest | httpx test clients | locust | cProfile, pytest-benchmark |
+| Go | go.mod | `go test` (+`-race`) | httptest | autocannon + pprof | `go test -bench` + pprof |
+| Java/JVM | pom.xml, build.gradle | JUnit | MockMvc / TestRestTemplate | autocannon + JFR | JMH or JFR |
+| Rust | Cargo.toml | `cargo test` | axum/actix test utils | autocannon + RSS monitoring | criterion / perf |
 
 ## Per-project memory
 
-Every skill reads and updates one directory, `$SMITHY_MEM`:
+Every skill reads and writes one folder, `$SMITHY_MEM`:
 
 ```
 $SMITHY_MEM/
-├── STATE.md        # ≤40-line index: active job, phase, base sha, next step
-├── config.json     # this project's config overrides (sparse)
-├── ledger.md       # append-only event log (one line per event)
-├── decisions.md    # append-only decision log
-└── jobs/<slug>/    # spec.md, plan.md, briefs/, reports/, handoff.md
+├── STATE.md       ≤40-line index: active job, phase, base sha, next step
+├── config.json    this project's config (only what differs)
+├── ledger.md      event log, append-only, written only by ledger.sh
+├── decisions.md   decision log, plus the `run:` line (how to start your app)
+├── lanes/         one folder per parallel task (see state lanes)
+└── jobs/<slug>/   spec.md · plan.md · briefs/ · reports/ · handoff.md
 ```
 
-### It does not have to live in your repo
-
-`docs/smithy/` is the default, not a requirement — plenty of repos clean, regenerate, or gitignore `docs/`, which would destroy the ledger mid-job. `scripts/paths.sh` resolves the location by the first rule that matches:
+Everyday skills read the short `references/memory-card.md`; the full rules are in `references/memory.md`. **It does not have to live in your repo.** Some repos clean or regenerate `docs/`, which would wipe the ledger. `scripts/paths.sh` picks the folder by the first rule that matches:
 
 | # | Rule | Set by |
 |---|---|---|
 | 1 | `$SMITHY_MEM_DIR` env var | you, per session |
 | 2 | `<repo>/.smithy-path` pointer file | `init-memory.sh --at <dir> --pointer` |
-| 3 | `$SMITHY_HOME/projects.tsv` registry — **fully outside the repo** | `init-memory.sh --external` |
-| 4 | `<repo>/docs/smithy/` when it already exists | existing projects keep working untouched |
+| 3 | `$SMITHY_HOME/projects.tsv` — fully outside the repo | `init-memory.sh --external` |
+| 4 | `<repo>/docs/smithy/` if it already exists | older projects keep working |
 | 5 | global `memory.location` (`repo` / `external`) | `/smithy:calibrate` |
 
-The first time smithy runs in a project it **asks** where memory should live rather than guessing; answer once and it's recorded. `--pointer` also drops a one-line file at the repo root so a fresh clone on another machine finds the same dir (the registry is per-machine). `scripts/paths.sh --dump` shows the resolved dir and which rule produced it.
-
-Linked git worktrees — including the ones smithy creates for parallel task batches — all resolve to the *main* worktree's memory, so there is exactly one ledger per project. Concurrent work is kept apart by **state lanes** rather than by splitting the memory dir (see [State lanes](#state-lanes--isolation-for-the-state-not-just-the-code)); a lane's events are folded back into that one ledger in timestamp order when the work lands.
-
-Recovery rule baked into every skill: **trust STATE.md, the ledger, and git log over recollection.** Sessions (and compactions) can die mid-run; the pipeline resumes at the first unit without a DONE/APPROVED ledger line.
+The first time, smithy **asks** where memory should live. `scripts/paths.sh --dump` shows the folder and the rule that chose it. All git worktrees use the main worktree's memory, so there is one ledger per project. **Recovery rule:** trust STATE.md, the ledger and `git log` over recollection. After a crash or compaction, work resumes at the first unit without a DONE/APPROVED line.
 
 ## The creed
 
-Every skill and agent loads `references/creed.md`:
+Every skill and agent follows `references/creed.md`. The main points:
 
-- **Never assume.** Ambiguity becomes a question to the user or an explicit recommendation — never a silent guess.
-- **Evidence before assertion.** Claims cite file:line, command output, or a ledger entry.
-- **Surgical changes.** Every changed line traces to the request.
-- **Success criteria first.** Every plan step carries `→ verify: [check]`.
+- **Never assume.** Unclear → a question or a stated recommendation.
+- **Evidence before claims.** Cite `file:line`, command output or a ledger line.
+- **Small, exact changes.** Every changed line traces to the request.
+- **Work toward a check.** Every plan step has `→ verify: <check>`.
+- **Finish the job.** Done only when every check passes; anything left is listed, never hidden.
+- **Plain voice.** Simple English, short but complete, a picture where it helps. **Lookup tools** are helpers, read-only by default.
+
+## Working on smithy
+
+Every `tests/*.sh` must stay green (11 suites). `tests/skill-lint.sh` checks each SKILL.md (layout per `references/skill-shape.md`, size, referenced files exist), the agents' deny-lists, and that the three manifests agree on the version. To try a change live without touching your installed copy: `claude --plugin-dir /path/to/smithy-claude --settings '{"enabledPlugins":{"smithy@smithy-claude":false}}'`.
 
 ## Credits
 
-Design synthesizes verified patterns from [superpowers](https://github.com/obra/superpowers) (file-handoff dispatch, progress ledger, two-verdict review), [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (agent shape, verification report, handoff template), gstack (QA tiers, health scores, confidence calibration), and [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) (the constitution). MIT licensed.
+Built on proven patterns from [superpowers](https://github.com/obra/superpowers) (file-handoff dispatch, progress ledger, two-verdict review), [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (agent shape, verification report, handoff template), gstack (QA tiers, health scores, confidence calibration), and [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) (the constitution). MIT licensed.

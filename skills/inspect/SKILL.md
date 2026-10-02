@@ -1,96 +1,93 @@
 ---
 name: inspect
-description: "Two-verdict code review (spec compliance + quality); findings need evidence, severity rationale, confidence. Triggers: 'inspect', 'review this change'."
+description: "Code review with two verdicts (does it meet the spec? is the code good?) — every finding has proof, a severity reason and a confidence. Reviews a branch, a commit range or uncommitted changes. Triggers: 'inspect', 'review this change', 'code review'."
 ---
 
 # Inspect — Two-Verdict Review
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md` and `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` first.
-Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append inspect <slug> <unit> STARTED -`
+```
+what should it do? (brief) ──┐
+                             ├──▶ inspector ──▶ Verdict 1 spec · Verdict 2 quality
+what changed? (BASE..TARGET) ┘                 ──▶ you judge the findings ──▶ user
+```
 
-## Determine scope
+## Start
 
-- **Pipeline mode** (called from forge): brief + base sha already exist —
-  the review package was built by forge; skip to Dispatch.
-- **Standalone mode**: ask the user what to review and against what base
-  (default: merge-base with the default branch). Write an ad-hoc brief at
-  `$SMITHY_MEM/jobs/adhoc-<date>/briefs/review-brief.md` capturing what the
-  change is SUPPOSED to do (from the user's description — ask, don't infer
-  silently). Then:
-  `review-package.sh record-base` is NOT appropriate here (HEAD is the work);
-  instead set the base explicitly in STATE.md or pass a package built with
-  `git diff <base>..HEAD` semantics via
-  `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build <brief> <out>`
-  after writing the base sha into STATE.md's `- Base sha:` line.
+1. `bash ${CLAUDE_PLUGIN_ROOT}/scripts/start.sh inspect auto` — read its summary.
+2. Read once per session: `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`,
+   `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`.
 
-## Dispatch
+## Needs
 
-1. Resolve routing: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh review`
-2. Dispatch the `smithy:inspector` agent (model from routing). Prompt =
-   effort banner + paths only: review package, creed, report output path
-   (`jobs/<slug>/reports/<unit>-review.md`) + this line verbatim:
-   **"Do Not Trust the Report — the forger's claims are unverified.
-   Verify each one against the diff and by running read-only checks."**
+| Needs | If it exists | If it is missing |
+|---|---|---|
+| What to review | from the user or the caller | ask: a branch, a commit range, or uncommitted changes? |
+| A base | the caller's job base (STATE.md) | standalone: ask, or recommend the merge-base with the default branch (`git merge-base HEAD origin/main`). Pass it as `--base`; never write it into STATE.md |
+| What the change should do | the plan / brief | write a short brief at `jobs/<slug>/briefs/review-brief.md` from the user's words. Unclear → ask; never infer the intent silently |
 
-## Present results
+## Steps
 
-3. Read the review report. Present to the user (or return to forge):
-   - Verdict 1 (spec compliance) and Verdict 2 (code quality)
-   - Findings table: severity, confidence, file:line
-   - Do NOT soften severities; do NOT drop low-confidence findings — label them.
+1. **Package** —
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build [--base <ref>] <brief> <memory>/jobs/<slug>/reports/review-pkg.md [<report file or reports folder> | ""] [HEAD|<branch>|WORKTREE]`
+   (`WORKTREE` = include uncommitted changes). To review a target with no
+   report, pass "" as the report (arguments are by position).
+   → verify: the script prints `package=… lines=N`.
+2. **Dispatch** one `inspector` (role `review`, `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §1–2).
+   Prompt = banner + paths (package, creed, report path
+   `jobs/<slug>/reports/review.md`) + this line exactly:
+   **"Do Not Trust the Reports — the implementers' claims are unverified.
+   Verify each one against the diff and with read-only checks."**
+   If TDD ran, also say the commits mode (`clean` or `stages`).
+   → verify: the report exists with two verdicts.
+3. **Judge the findings** (next section) before showing or acting on them.
+   → verify: every High/Critical finding is confirmed, reclassified, or disputed with proof.
+4. **Show the user**: both verdicts, then a findings table (severity,
+   confidence, `file:line`). Do not soften severities; label low-confidence
+   findings instead of dropping them.
+   → verify: the user saw both verdicts and a table row for every finding.
+5. **Route the fixes** —
+   - Called by forge/strike/jig: hand the verdicts back; the caller owns fix
+     rounds (budget: `implementation.max_fix_cycles`).
+   - On its own: if `config.sh get gates.auto_fix_review_findings` is `true`,
+     offer to fix Critical/High through `/smithy:strike`; otherwise list the
+     findings with a recommended action each, and stop — the user decides.
+   → verify: the user saw every finding, or the caller has the verdicts.
+6. **Log** — `ledger.sh append inspect <slug> <unit> <APPROVED|REJECTED> <review-path>`.
+   → verify: `ledger.sh tail 1` shows the inspect line.
 
-4. **Route the findings:**
-   - Pipeline mode: return verdicts to forge (it owns the fix loop).
-   - Standalone: if `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get gates.auto_fix_review_findings`
-     prints true (it merges defaults → global → project; never read a config
-     file directly),
-     offer to dispatch fixes for Critical/High via a forge-style forger
-     brief; otherwise list findings with recommended actions and stop —
-     the user decides.
+## Judging findings
 
-5. **Log:** `ledger.sh append inspect <slug> <unit> <APPROVED|REJECTED> <review-report-path>`
+The inspector's report is input, not an order. You are the controller:
 
-## Rules
+- Check "every / all / no" claims against the diff before repeating them.
+- Re-rate a severity when the finding's own text undercuts it ("works, but
+  could be cleaner" is not High).
+- Below confidence 7 = a question to check, not a fix order.
+- Wrong premise → push back with proof, and add a `## Controller notes`
+  section to the review report saying why a finding was not acted on.
+- The verdict follows the brief, not taste: disagreeing with an approved
+  design is a note, not a REJECTED. REJECTED (quality) needs at least one
+  Critical or High finding.
 
-- The reviewer is read-only by design; never ask it to fix anything.
-- Verdicts bind to the brief, not to taste: a design disagreement with the
-  approved plan is a note, not a REJECTED.
-- REJECTED (quality) requires at least one Critical or High finding.
-- TDD-mode diffs (jigsmith): the inspector additionally verifies RED→GREEN
-  ordering per requirement. How, depends on `implementation.tdd_commits`:
-  - `git` — from the package's commit list. A `feat:` commit with no preceding
-    `test:` commit for its requirement is a High finding (process evidence
-    missing), whatever the code looks like.
-  - `local` — nothing is committed, so the commit list is empty by design and
-    its absence is NOT a finding. Verify against the stage log at
-    `reports/raw/task-N-tdd-stages.md` instead: RED before GREEN per
-    requirement, monotonic timestamps, and every file it names actually present
-    in the diff. A stage log that is missing, non-monotonic, or names files the
-    diff does not contain is a High finding. **Say in the prompt which mode is
-    in play** — an inspector told to check commit ordering on a `local`-mode
-    task will reject every task for a violation that cannot exist.
+## Done when
 
-## Evaluating the findings you receive
+- [ ] the base and target were stated (and the base was never written into another job's STATE)
+- [ ] the review report has two verdicts and proof for every finding
+- [ ] every Critical/High finding was confirmed or disputed with evidence
+- [ ] the user saw the findings table, or the caller got the verdicts
+- [ ] ledger line written
 
-You are the controller; the inspector's report is input, not verdict-by-fiat.
-Before acting on findings:
-- Verify "every"/"all"/"no" generalizations against the diff before repeating
-  them to the user — reviewers overgeneralize.
-- Reclassify severity when the finding's own text undercuts its label
-  (a "works fine but could be cleaner" is not High).
-- A finding below confidence 7 is a question for investigation, not a fix
-  order. Investigate or ask; don't blindly apply.
-- Push back with evidence when a finding's premise is wrong — and record the
-  pushback in the review report's margin (append a `## Controller notes`
-  section) so the audit trail shows why a finding wasn't acted on.
+## Output
 
-## Red flags — these thoughts mean STOP
+`jobs/<slug>/reports/review.md` (with `## Controller notes` if you disputed anything).
+
+`Next: /smithy:strike — fix the confirmed findings` · or `Next: none — approved`.
+
+## Red flags
 
 | Thought | Reality |
 |---|---|
-| "The findings look reasonable, apply them all" | Findings get verified, not obeyed. A wrong fix from a wrong finding is your diff now. |
-| "It's REJECTED but the fixes are trivial, I'll just do them inline" | Fixes route through the fix loop (forge/jig) with their own review. Inline fixes skip the trail. |
-| "Low-confidence findings clutter the report, drop them" | Label them, don't drop them — the user decides what noise is. |
-| "The forger's report matches the diff, skip the checks" | The planted-violation test caught a fabricated verification. Run the read-only checks. |
-
-Handoff: "REJECTED → fix loop in `/smithy:forge`; failures while fixing → `/smithy:anneal`."
+| "The findings look right, apply them all" | Findings are checked, not obeyed. A wrong fix is now your diff. |
+| "REJECTED, but the fixes are tiny — I'll do them inline" | Fixes go through strike (or the caller's fix round) so they get checked too. |
+| "Drop the low-confidence findings" | Label them; the user decides what is noise. |
+| "The report matches the diff, skip the checks" | Reports have been wrong before. The inspector runs the checks. |

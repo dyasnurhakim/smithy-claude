@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# init-memory.sh — idempotently scaffold this project's smithy memory dir.
-# Creates only what is missing; prints each item it created.
+# init-memory.sh — set up this project's smithy memory folder. Safe to run
+# again: it creates only what is missing and prints each item it creates.
 #
-# The memory dir does NOT have to live in the repo. Resolution order is
-# paths.sh's (env -> .smithy-path -> registry -> existing docs/smithy -> global
-# default). When nothing is configured and the global default is "ask", this
-# script REFUSES to guess and exits 3 — the caller asks the user, then re-runs
+# The memory folder does NOT have to be in the repo. It is found in paths.sh
+# order (env -> .smithy-path -> registry -> existing docs/smithy -> global
+# default). If nothing is set and the global default is "ask", this script
+# will NOT guess: it exits 3. The caller asks the user, then runs it again
 # with one of:
 #
-#   init-memory.sh --in-repo          <repo>/docs/smithy          (committable)
+#   init-memory.sh --in-repo          <repo>/docs/smithy          (can be committed)
 #   init-memory.sh --external         $SMITHY_HOME/projects/<slug> (outside the repo)
-#   init-memory.sh --at <dir>         any directory you name
+#   init-memory.sh --at <dir>         any folder you name
 #   init-memory.sh --at <dir> --pointer
 #                                     ...plus a .smithy-path file at the repo
-#                                     root so a fresh clone finds it too
+#                                     root, so a fresh clone finds it too
 #
-# --in-repo/--external/--at also RELOCATE an existing setup's registration;
-# they never move files. Use `--global-default repo|external|ask` to stop being
-# asked for future projects.
+# On an existing setup, --in-repo / --external / --at only CHANGE where it is
+# registered; they never move files. `--global-default repo|external|ask`
+# sets the answer for future projects, so you are not asked again.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,7 +30,7 @@ while [ $# -gt 0 ]; do
     --in-repo)  CHOICE="repo" ;;
     --external) CHOICE="external" ;;
     --at)       CHOICE="at"; AT="${2:-}"; shift
-                [ -n "$AT" ] || { echo "init-memory.sh: --at needs a directory" >&2; exit 2; } ;;
+                [ -n "$AT" ] || { echo "init-memory.sh: --at needs a folder path" >&2; exit 2; } ;;
     --pointer)  POINTER=1 ;;
     --global-default)
                 GLOBAL_DEFAULT="${2:-}"; shift
@@ -55,15 +55,15 @@ case "$CHOICE" in
   "")
     if [ "$SMITHY_MEM_SOURCE" = "unset:ask" ]; then
       cat >&2 <<EOF
-init-memory.sh: WHERE this project keeps smithy memory is undecided — refusing to guess.
+init-memory.sh: WHERE this project keeps smithy memory is not decided yet — not guessing.
 
-  ASK THE USER, then re-run with their choice:
+  ASK THE USER, then run again with their choice:
     --in-repo     $SMITHY_MAIN_ROOT/docs/smithy
-                  (committable, reviewable alongside the code; wrong if this
-                   repo cleans or regenerates docs/)
+                  (can be committed and reviewed with the code; a bad choice
+                   if this repo cleans or rebuilds docs/)
     --external    $SMITHY_HOME_DIR/projects/$(smithy_slug)
-                  (survives any repo cleaning; not committed, not shared)
-    --at <dir>    somewhere you name (add --pointer to record it in-repo)
+                  (safe from any repo cleaning; not committed, not shared)
+    --at <dir>    a place you name (add --pointer to save the path in the repo)
 
   Add --global-default repo|external to skip this question in future projects.
 EOF
@@ -82,9 +82,9 @@ mk() { echo "created: $1"; created=1; }
 
 mkdir -p "$TARGET" || { echo "init-memory.sh: cannot create $TARGET" >&2; exit 1; }
 
-# Register anything that is NOT the legacy in-repo default. The invariant that
-# every non-default location is in the registry is what lets guard.sh resolve
-# paths on the hook path in pure bash (SMITHY_PATHS_FAST) without missing one.
+# Register every location that is NOT the old in-repo default. Because every
+# other location is always in the registry, guard.sh can find paths in pure
+# bash before each Bash call (SMITHY_PATHS_FAST) and never miss one.
 if [ "$TARGET" != "$SMITHY_MAIN_ROOT/docs/smithy" ]; then
   bash "$SCRIPT_DIR/paths.sh" set-mem "$TARGET" >/dev/null
   echo "registered: $SMITHY_MAIN_ROOT -> $TARGET"
@@ -95,10 +95,10 @@ fi
 if [ "$POINTER" -eq 1 ]; then
   PTR="$SMITHY_MAIN_ROOT/.smithy-path"
   if [ ! -f "$PTR" ]; then
-    printf '# smithy memory dir for this project (see scripts/paths.sh)\n%s\n' "$TARGET" > "$PTR"
+    printf '# smithy memory folder for this project (see scripts/paths.sh)\n%s\n' "$TARGET" > "$PTR"
     mk "$PTR"
   else
-    echo "note: $PTR already exists — left untouched (edit it by hand to repoint)"
+    echo "note: $PTR already exists — not changed (edit it by hand to point somewhere else)"
   fi
 fi
 
@@ -121,27 +121,28 @@ fi
 [ -f "$MEM/ledger.md" ]    || { : > "$MEM/ledger.md"; mk "$MEM/ledger.md"; }
 [ -f "$MEM/decisions.md" ] || { printf '# Decisions\n' > "$MEM/decisions.md"; mk "$MEM/decisions.md"; }
 
-# guard tokens must never be committed — only meaningful when memory is in-repo
+# Guard tokens must never be committed. This only matters when memory is in the repo.
 if [ "$INSIDE" -eq 1 ] && [ ! -f "$MEM/.gitignore" ]; then
   printf '.git-grant\n.push-once\n.destructive-once\n' > "$MEM/.gitignore"
   mk "$MEM/.gitignore"
 fi
 
-# Out-of-repo dirs get a breadcrumb — $SMITHY_HOME/projects/ is otherwise opaque
+# A folder outside the repo gets a PROJECT.md that says which repo it belongs
+# to — otherwise $SMITHY_HOME/projects/ is hard to read.
 if [ "$INSIDE" -eq 0 ] && [ ! -f "$MEM/PROJECT.md" ]; then
   printf '# Smithy memory\n\n- Project: %s\n- Created: %s\n- Registry: %s\n' \
     "$SMITHY_MAIN_ROOT" "$(date -u +%Y-%m-%dT%H:%MZ)" "$SMITHY_REGISTRY" > "$MEM/PROJECT.md"
   mk "$MEM/PROJECT.md"
 fi
 
-# Project config starts SPARSE — it holds only overrides; the config layers
-# merge it over global and then plugin defaults. Copying the full defaults here
-# would pin stale values and make every role read as "project"-sourced.
+# Project config starts almost EMPTY. It holds only overrides; the config
+# layers put it on top of global, then plugin defaults. Copying all defaults
+# here would freeze old values and make every role look "project"-set.
 if [ ! -f "$MEM/config.json" ]; then
   printf '{\n  "smithy_config_version": 1,\n  "routing": {}\n}\n' > "$MEM/config.json"
   mk "$MEM/config.json"
 fi
 
 echo "memory: $MEM"
-[ "$created" -eq 0 ] && echo "(already initialized — nothing created)"
+[ "$created" -eq 0 ] && echo "(already set up — nothing created)"
 exit 0

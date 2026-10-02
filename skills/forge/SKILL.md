@@ -1,263 +1,136 @@
 ---
 name: forge
-description: "Execute the approved plan task-by-task (forger or jigsmith), review after every task, parallel batches in worktrees. Triggers: 'forge', 'implement the plan'."
+description: "Build the plan task by task with forger or jigsmith agents (each self-checks and makes one commit), then ONE review of the whole job. Parallel batches in worktrees. Works without a plan for a single task. Triggers: 'forge', 'implement the plan', 'build this'."
 ---
 
-# Forge — Implementation Loop
+# Forge — Build the Plan
 
-Read `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory.md`,
-and `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` (the dispatch protocol is
-binding: file handoffs, effort banners, status vocabulary, defensive parsing).
-Log: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append forge <slug> loop STARTED -`
-
-## Checklist (create a todo per item)
-
-1. Verify preconditions (plan, briefs, base sha, clean tree)
-2. Read ledger; compute resume position
-3. Choose implementation mode (TDD vs plain) + resolve the three dials per config
-4. Per task: dispatch → handle status → review → verdict → log
-5. Parallel batches only: land the integration branch, then merge every lane
-6. All tasks DONE + APPROVED; STATE.md updated; hand off to temper
-
-## Preconditions — check all four before any dispatch
-
-- `$SMITHY_MEM/jobs/<slug>/plan.md` exists and every task has a brief in
-  `briefs/`. Missing → offer `/smithy:blueprint`; never improvise briefs here.
-- STATE.md has a base sha (blueprint records it).
-- Working tree is clean (`git status --short`) — each task commits atomically.
-  Dirty tree → show the user what's dirty and ask; never stash silently.
-- The plan was approved (gate line in the ledger, or the user says so now).
-- A commit grant exists (`bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh status`).
-  The orchestrator grants it at the plan gate; running forge standalone, ask
-  the user ("authorize this plan's task commits?") and on yes run
-  `guard.sh grant <slug>`. Without it the guard hook blocks agent commits.
-  **Exception:** in TDD `local` mode (`implementation.tdd_commits` = `local`)
-  nothing commits, so no grant is needed — do not ask for one you will not
-  use. Every other precondition still applies.
-
-## Resume rule
-
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30` first. Start at the
-FIRST task lacking a `DONE`+`APPROVED` pair. Never re-dispatch completed
-tasks. Cross-check `git log --oneline <base>..HEAD` — commits are ground
-truth for what actually happened. **Trust the ledger and git log over your
-recollection**, especially after compaction.
-
-## Step 0 — choose the implementation mode (once per job)
-
-Read `implementation.tdd` with
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd` — it
-merges all three config layers (defaults → global → project), so never read a
-config file directly or you will miss the user's global default:
-
-- `"always"` → every task goes to the **jigsmith** (TDD; see `/smithy:jig`).
-- `"never"` → every task goes to the plain **forger**.
-- `"ask"` (default) → AskUserQuestion ONCE, at the first task, with a
-  recommendation from the jig suitability table (`/smithy:jig`): TDD for
-  behavior-specifiable work and all bug fixes; plain forge for exploratory/
-  visual/mechanical work. Mixed plans may choose per-task — say which tasks
-  you'd route where and why.
-
-Then read the three dials that shape the loop (same `config.sh get` rule —
-all three merge across the layers, so never read a config file directly):
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd_level      # minimal|balanced|max
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd_commits    # git|local
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.max_fix_cycles # int, default 2
+```
+plan ─▶ task 1 ─▶ task 2 ─▶ … ─▶ task N ─▶ ONE review (whole job) ─▶ fix rounds ─▶ report
+         agent: build → check → self-check → 1 commit      inspector: BASE..HEAD
 ```
 
-`tdd_level` and `tdd_commits` become brief lines (verbatim from
-`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §4b); `max_fix_cycles` is YOUR
-budget in step 6. State the resolved trio once, in one line, before the first
-dispatch — the user should never discover mid-job that `local` mode meant
-nothing got committed.
+## Start
 
-Record the choice in `$SMITHY_MEM/decisions.md` (≤3 lines).
+1. `bash ${CLAUDE_PLUGIN_ROOT}/scripts/start.sh forge auto` — read its summary.
+2. Read once per session: `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, `${CLAUDE_PLUGIN_ROOT}/references/memory-card.md`,
+   `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md`. TDD tasks: also `/smithy:jig` (skills/jig/SKILL.md).
 
-## Per-task loop
+## Needs
 
-1. **Resolve routing:** `bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh implementation`
-   → model + effort banner (dispatch.md table).
+| Needs | If it exists | If it is missing |
+|---|---|---|
+| `jobs/<slug>/plan.md` + `briefs/task-N.md` | use them | **One task** (the request fits one brief): write that brief yourself (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §3) plus a short `plan.md` (title, goal, one task line) so the final review has a brief; show them, and ask "build this?". **More than one task**: offer `/smithy:blueprint` — or, if the user says go, write a short plan with one brief per task and confirm it the same way |
+| Plan approval | a gate line in the ledger, or the user said yes | ask; the yes covers this plan only |
+| Commit approval | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/guard.sh status` shows a grant | on the plan yes: `guard.sh grant <slug>` |
+| Job base sha | STATE.md `Base sha` for this job | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base` (once, now) |
+| Clean working tree | continue | show `git status --short`, ask; never stash on your own |
 
-2. **Record base for this task:**
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
+## Steps
 
-3. **Dispatch** the `smithy:forger` — or `smithy:jigsmith` in TDD mode, after
-   augmenting the brief per dispatch.md §4b. Agent tool with `model` from
-   routing (omit if `inherit`). The prompt contains ONLY: the effort banner,
-   absolute paths (brief, creed, report output), and one line "Job <slug>,
-   task N". Never paste file contents — paths only.
+1. **Resume check** — `bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh tail 30` and
+   `git log --oneline <base>..HEAD`. Start at the first task with no `DONE`
+   line. Never redo a finished task.
+   → verify: you can name the first task to run, with the ledger line that proves the earlier ones.
 
-4. **Handle the status** (defensive rule from dispatch.md applies to
-   malformed reports):
+2. **Choose the builder** (once per job) —
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.tdd`:
+   `always` → jigsmith; `never` → forger; `ask` → ask the user once, with a
+   recommendation from `/smithy:jig` § When to use TDD (mixed plans may
+   route per task — say which and why). TDD in play → read the three TDD
+   settings in one call (jig § The three settings) and say them in one line.
+   If `tdd_commits` printed an old-name note, handle it as jig Step 1 says:
+   tell the user once what the old value now means (ONE commit per task),
+   and ask before the first commit (they may want `stages`, or to stop).
+   Log the choice in `decisions.md` (≤3 lines).
+   → verify: each task has a builder; the settings line was shown.
 
-   | Status | Your response |
-   |---|---|
-   | DONE | → step 5 |
-   | DONE_WITH_CONCERNS | Read the report. Triage EVERY concern: blocking → resolve before review; non-blocking → carry into the review package notes. Never proceed with an untriaged concern. |
-   | NEEDS_CONTEXT | Answer from spec.md/plan.md if derivable; else ask the user. Re-dispatch with the answer appended to the brief. Same question twice → the user decides. |
-   | BLOCKED | Resolve the blocker if you can (env, missing file). Else escalate to the user. On retry after an agent-capability blocker, consider one model-tier bump (dispatch.md §6). |
+3. **Lookup** (creed §10, once per job, before the first dispatch) — memory:
+   past decisions and bugs on the plan's files; graph: callers of the code
+   that will change. Add what matters to each brief's `key_facts`.
+   → verify: `key_facts` filled with sources, or `[]`.
 
-   Log every resolution: `ledger.sh append forge <slug> task-N <STATUS> <report>`
+4. **Per task** —
+   a. TDD task: add jig's brief lines (jig § Brief lines).
+   b. Dispatch per `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §1–2 (role `implementation`;
+      prompt = banner + paths + "Job <slug>, task N").
+   c. Handle the status (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §4). Never answer
+      NEEDS_CONTEXT with a guess — use spec/plan, or ask.
+   d. TDD task: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/tdd-snap.sh verify <slug> task-N`
+      must print `OK` (a FAIL → re-dispatch once with the FAIL line; again → the user).
+      Parallel tasks: run it inside the task's worktree (`${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §7).
+   e. Check the one commit: `git log --oneline -1` matches the brief's message.
+   f. `ledger.sh append forge <slug> task-N <STATUS> <report>`; update STATE.md.
+   → verify: DONE line in the ledger; TDD tasks have `tdd-verify: OK`.
 
-5. **Review the task — never skip, never self-review.** Build the package
-   (paths from the project root):
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build $SMITHY_MEM/jobs/<slug>/briefs/task-N.md $SMITHY_MEM/jobs/<slug>/reports/task-N-pkg.md $SMITHY_MEM/jobs/<slug>/reports/task-N-impl.md`
-   Then dispatch the `smithy:inspector` per `/smithy:inspect` (routing role
-   `review`; the Do-Not-Trust-the-Report line goes in the prompt verbatim).
-   In TDD mode the inspector also verifies RED→GREEN commit ordering.
+5. **Parallel batches** — only tasks marked `∥ batch-X` in the plan, and only
+   if the user says yes for that batch. Follow `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §7
+   exactly (integration branch, one worktree per task, all dispatches in ONE
+   message, test in integration, land, merge lanes, clean up).
+   → verify: `worktree.sh list` shows no smithy worktrees; `lane.sh list` shows no open lanes.
 
-6. **Handle the verdicts:**
-   - Both APPROVED → `ledger.sh append inspect <slug> task-N APPROVED <review-report>`;
-     update STATE.md (task N done, next task named); next task.
-   - Any REJECTED → re-dispatch the implementation agent with the review
-     report path added to the brief context. **The budget is
-     `implementation.max_fix_cycles` per task** (default 2; `0` means escalate
-     on the first REJECTED without auto-fixing). When it is spent, STOP:
-     present both report paths to the user with your read on why it's stuck
-     (bad brief? wrong approach? agent capability?).
+6. **Final review — once, after ALL tasks** — follow `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §5:
+   one package from the job base to HEAD with `plan.md` as the brief and the
+   reports folder `jobs/<slug>/reports/` as the third argument, ONE
+   `inspector`. Name the TDD commits mode in the prompt if TDD ran. Judge the
+   findings before acting (`/smithy:inspect` § Judging findings).
+   → verify: a review report exists with two verdicts.
 
-## Red flags — these thoughts mean STOP
+7. **Fix rounds** — REJECTED → `${CLAUDE_PLUGIN_ROOT}/references/dispatch.md` §6: re-dispatch the
+   builder for the affected tasks with the review path in their briefs, then
+   review only the fix diff. Budget: `implementation.max_fix_cycles` rounds
+   (`config.sh get implementation.max_fix_cycles`). Spent → stop and show the
+   user both reviews and why you think it is stuck.
+   → verify: both verdicts APPROVED, or the user decided.
+
+8. **Report** — write `jobs/<slug>/reports/forge-report.md` (below), then delete
+   the per-task scratch (`reports/task-*-impl.md`, `reports/review-pkg*.md`;
+   keep `reports/raw/` and the review report). Log
+   `ledger.sh append forge <slug> report DONE jobs/<slug>/reports/forge-report.md`.
+   Update STATE.md (phase FORGE done, next: temper).
+   → verify: one forge-report.md; no `task-*-impl.md` left.
+
+### forge-report.md
+
+Envelope (`kind: forge-report`, `unit: all`, `agent: controller`, `status:
+DONE`; carry forward every open `key_facts`/`concerns` from all reports),
+then:
+
+```markdown
+# Forge Report — <job>
+## Summary
+<N tasks, N commits, batches run, fix rounds used — five lines at most>
+| Task | Status | Builder | Commit | TDD proof |
+|------|--------|---------|--------|-----------|
+| task-1 | DONE | jigsmith | a1b2c3 feat: … | tdd-verify OK |
+## Review
+<verdicts, findings fixed, findings declined and why>
+## Per-task notes (only what the next phase needs)
+## Open concerns (copied from the task envelopes)
+```
+
+## Done when
+
+- [ ] every task has a DONE ledger line (cite them)
+- [ ] TDD tasks: `tdd-verify: OK` for each (paste the lines)
+- [ ] one commit per task (`git log --oneline <base>..HEAD` matches the task count, plus fix commits)
+- [ ] one final review, both verdicts APPROVED — or the user decided after the fix budget ran out
+- [ ] no smithy worktrees and no open lanes remain
+- [ ] `forge-report.md` written; per-task scratch deleted; STATE.md updated
+
+## Output
+
+`jobs/<slug>/reports/forge-report.md` · the review report · `reports/raw/` (TDD logs).
+
+`Next: /smithy:guild — production panel (when review_panel is on), else /smithy:temper`
+
+## Red flags
 
 | Thought | Reality |
 |---|---|
-| "The task is tiny, I'll implement it inline myself" | Inline work skips the brief, the report, and the review. Dispatch it — that's the audit trail. |
-| "The report says DONE, reviews are slowing us down" | The planted-violation test exists because DONE has been a lie before. Review every task. |
-| "One more fix cycle will surely do it" | `max_fix_cycles` is the budget. The next one is the user's call, not yours. |
-| "The batch landed, I'll merge the lanes later" | Later is after compaction, when nobody remembers which lanes existed. Merge (or abandon) at batch end, every time. |
-| "The concern is minor, I'll note it later" | Untriaged concerns are how DONE_WITH_CONCERNS becomes silently DONE. Triage now. |
-| "I'll answer NEEDS_CONTEXT with my best guess" | The agent refused to guess — don't guess on its behalf. Derive from spec/plan or ask. |
-| "The tree is only a little dirty" | Any dirt contaminates the task's atomic commit and its review diff. Clean or ask. |
-| "These two tasks look independent, I'll parallelize them" | Only blueprint's ∥ marker (with its disjointness evidence) authorizes parallel execution. Unmarked = sequential. |
-| "The batch finished, I'll clean worktrees later" | Later is how stale worktrees and orphan branches accumulate. Clean at batch end, every time. |
-
-## Parallel batches (`∥ batch-X` tasks in the plan)
-
-When the NEXT pending tasks share a batch marker, they MAY run concurrently
-in isolated worktrees — but parallel is the user's choice, never automatic:
-
-1. **Ask the user, once per batch** (AskUserQuestion): "batch-X (tasks N,M)
-   is marked parallel-safe — run it parallel (worktrees, ~simultaneous) or
-   sequential (simpler, easier to follow)?" Include the disjointness
-   evidence one-liner from the plan. Sequential chosen → normal per-task
-   loop, no worktrees.
-2. **Verify the batch is still valid**: re-check the plan's Parallel
-   evidence against current reality (files may have appeared since
-   blueprint). Any overlap now → fall back to sequential for that batch and
-   say why.
-3. **Record base once** (`review-package.sh record-base`), then **create the
-   integration worktree** — parallel work never merges straight into the
-   working branch:
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh integrate <slug>`
-4. **Create one worktree per task**:
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree.sh create <slug> task-N`
-   → isolated checkout + branch `smithy/<slug>/task-N`, **plus a state lane
-   `<slug>-task-N`** so the task's ledger/STATE writes cannot collide with
-   its siblings'. The lane is automatic: the script drops a `.smithy-lane`
-   marker in the checkout, and any smithy script run inside resolves it with
-   no help from the agent. Grants carry over automatically (the guard
-   resolves them from the main worktree).
-   All worktrees and branches are LOCAL — nothing is pushed to origin
-   unless the user explicitly asks (and each push needs its own yes).
-   Confirm the lanes opened before dispatching:
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh list` — a task whose lane is
-   missing will write to the shared ledger and interleave with the others.
-5. **Dispatch ALL batch agents in a SINGLE message** (parallel Agent calls,
-   forger or jigsmith per the TDD mode). Each prompt additionally names its
-   worktree path with: "Work ONLY inside <worktree-path> — it is your
-   checkout; commit there. Briefs/reports live in the MAIN repo at the
-   absolute paths given." Reports go to the main repo's
-   `$SMITHY_MEM/jobs/<slug>/reports/` (absolute paths — reports are not
-   committed to task branches).
-6. **As each agent resolves**, handle its status per the sequential loop.
-   Then per task, in plan order:
-   - review the BRANCH before absorbing:
-     `review-package.sh build <brief> <pkg> <impl-report> smithy/<slug>/task-N`
-     → inspector per `/smithy:inspect`; fix cycles re-dispatch INTO the same
-     worktree (the `max_fix_cycles` budget, as always);
-   - APPROVED → `worktree.sh absorb <slug> task-N` (merges into the
-     INTEGRATION branch), then `worktree.sh remove <worktree-path> --force`
-     (safe: the branch is merged; only disposable scratch remains).
-7. **Integration verification — before anything touches the working
-   branch**: in the integration worktree, run the batch tasks' verify
-   commands plus the project's test suite. Tasks that pass alone can still
-   interfere; this is where that shows up. Failure → `/smithy:anneal`
-   against the integration checkout; the working branch stays clean.
-8. **Land**: `worktree.sh land <slug>` merges the integration branch into
-   the working branch (--no-ff). Conflict (working branch moved during the
-   batch) → clean abort, escalate.
-9. **Absorb/land conflict** = the batch was NOT disjoint (or the working
-   branch drifted): the script aborts the merge cleanly. STOP, tell the
-   user which files collided, fix the plan's batch marking, and re-run the
-   conflicting task sequentially on top of what landed.
-10. **Combine the state — after landing, before cleanup.** Each parallel task
-    logged into its own lane; the project ledger has seen none of it yet.
-    Fold them in, in plan order so the merged history reads in task order:
-    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/lane.sh merge <slug>-task-N` per task
-    (or `lane.sh merge-all` once the whole batch has landed). Events merge by
-    timestamp, so the result is the same log a sequential run would have
-    produced. A task whose work was ROLLED BACK gets
-    `lane.sh abandon <slug>-task-N` instead — its events must not enter the
-    ledger, because the ledger is what the next session trusts over its own
-    recollection. Then rewrite STATE.md yourself: `lane.sh merge` refreshes
-    only the `Last event` line and deliberately leaves Phase/Next step alone.
-    Verify nothing is left: `lane.sh list` must show no active lanes.
-11. **Cleanup is not optional**: at batch end — success OR failure —
-    `worktree.sh clean <slug>` removes every smithy-created worktree,
-    integration included (committed work survives on branches; the script
-    refuses unmerged branch deletion). **Exception:** a worktree the USER
-    created or named is never auto-removed (the script refuses unmarked
-    worktrees) — ask: auto-clear it or leave it?
-12. Ledger lines per task as usual; per batch:
-    `ledger.sh append forge <slug> batch-X DONE -` after landing.
-
-Parallelism budget: one batch at a time, ≤4 worktrees. Never parallelize
-unmarked tasks, whatever the temptation — the marker carries blueprint's
-disjointness proof, and the user's yes carries the authorization.
-
-## Exit: consolidate into ONE report
-
-Per-task files (`task-N-impl.md`, `task-N-review.md`, `task-N-pkg.md`) are
-TRANSIENT scratch — needed while the loop runs (review packages embed them,
-statuses are machine-read from them), worthless after. When every task is
-DONE + APPROVED:
-
-1. Write `$SMITHY_MEM/jobs/<slug>/reports/forge-report.md` — the single
-   surviving report. Envelope (kind: forge-report, unit: all, agent:
-   controller, status: DONE; carry forward every unresolved
-   key_facts/concerns item from ALL task reports) + body:
-
-   ```markdown
-   # Forge Report — <job>
-   ## Summary
-   <N tasks, M commits, batches run, fix cycles needed — five lines max>
-   | Task | Status | Review | Commits | Mode |
-   |------|--------|--------|---------|------|
-   | task-1 | DONE | APPROVED | <shas> | jigsmith \| forger \| ∥ batch-A |
-   ## Per-task notes (only what the next phase needs)
-   ### task-N — <title>
-   <files changed, verification one-liner, concerns kept, deviations>
-   ## Review findings resolved / deferred
-   ## Carried concerns (verbatim from task envelopes)
-   ```
-
-2. DELETE the per-task scratch: `rm $SMITHY_MEM/jobs/<slug>/reports/task-*-impl.md
-   task-*-review.md task-*-pkg.md` — the consolidated report supersedes
-   them. (Old ledger lines still name them; that's history, and the
-   forge-report notes the consolidation.)
-
-3. Log: `ledger.sh append forge <slug> report DONE jobs/<slug>/reports/forge-report.md`
-
-Standalone single-task runs (and standalone `/smithy:jig`) write the
-consolidated report directly — same filename, one task row.
-
-## Exit criteria
-
-Every task has DONE + APPROVED ledger lines; ONE forge-report.md exists and
-the per-task scratch is gone; no smithy worktrees remain (`worktree.sh list`
-shows only the main worktree — plus any user worktrees, untouched); no active
-state lanes remain (`lane.sh list` — every one merged or explicitly
-abandoned). Update STATE.md (phase FORGE complete, next step: temper).
-
-Handoff: "All N tasks forged and approved — report at `reports/forge-report.md`; run `/smithy:temper` for the test pass."
+| "The task is tiny, I'll just do it myself" | Doing it inline skips the brief, the self-check and the record. Dispatch it. |
+| "DONE, so skip the TDD verify" | DONE is a claim. `tdd-snap verify` is the proof. Run it. |
+| "One more fix round will do it" | `max_fix_cycles` is the budget. The next round is the user's call. |
+| "These two tasks look separate, run them in parallel" | Only blueprint's `∥` marker plus the user's yes allow that. |
+| "The batch landed; merge lanes later" | Later is after compaction, when nobody knows which lanes existed. Now. |
+| "The tree is only a little dirty" | Dirt ends up in a task commit and in the review diff. Clean it or ask. |

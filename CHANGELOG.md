@@ -1,5 +1,149 @@
 # Changelog
 
+## 0.14.0 — unreleased
+
+Cheaper TDD with a clean history, skills that work on their own, read-only
+lookup tools for agents, and plain English everywhere.
+
+```
+before (per task, per requirement)            after (per task)
+test → commit → code → commit → refactor      tests (all) → code → ONE commit
+  → commit, ×N requirements                   proof: tdd-snap pictures, no extra commits
+inspector review after EVERY task             self-check per task, ONE review per job
+```
+
+### TDD: one clean commit per task
+- **`scripts/tdd-snap.sh`** proves "tests came first" without commits. Each
+  stage saves a *picture* of the working folder as a git tree object (a
+  throw-away index + `write-tree`): no commit, no ref, HEAD and the index are
+  never touched. `verify` checks the order (RED adds a test, GREEN adds code,
+  nothing changed after the last picture) and writes its verdict into the log;
+  `verify --audit` re-checks only the order at the end of a job.
+- **`tdd_commits` is now `clean` (default) | `stages`.** `clean` = one commit
+  per task, tests and code together. Old values still work and print a note:
+  `git` → `stages`, `local` → `clean`. `local` is gone because `clean` does
+  what it did *and* has proof the controller can check itself.
+- **Fewer test runs.** At `minimal`/`balanced` the agent writes all of a
+  task's tests, runs them once (RED), writes the code, runs once (GREEN), then
+  the full suite once. One-requirement-at-a-time stays for `max`.
+- **One home for the TDD rules:** `skills/jig/SKILL.md`. dispatch, forge and
+  calibrate point to it instead of repeating it.
+- Measured on the same 4-requirement task (sonnet, medium effort): 9 commits →
+  1; 12 → 9 tool calls; 52 s → 35 s; 56.8k → 51.9k agent tokens. The bigger
+  saving is on the controller side (next section), which this test did not
+  measure.
+
+### Review: a self-check per task, one review per job
+- forger and jigsmith end every task with a five-item self-check in their
+  report. The main session then dispatches ONE inspector over the whole job
+  (`BASE..HEAD`), judges the findings, and runs fix rounds
+  (`implementation.max_fix_cycles`), re-reviewing only the fix diff.
+- **Bug fixed:** `local` mode reviewed an empty diff — nothing was committed
+  but the package diffed `BASE..HEAD`.
+- **Bug fixed:** forge and jig ran `record-base` before every task, so a
+  "whole job" review only saw the last task; strike, anneal and inspect also
+  overwrote the active job's base. The job base is now set once. Standalone
+  work passes `--base <start sha>` instead.
+- `review-package.sh build` takes `--base <ref>` (never writes STATE.md) and
+  `WORKTREE` as a target (includes uncommitted changes).
+
+### Every skill works on its own
+- **`scripts/start.sh <skill> [auto|new|<slug>]`** is step 1 of every skill:
+  finds or creates the memory folder (exit 3 = ask the user where), reads
+  STATE.md, picks the job slug, logs STARTED. Twelve skills used to skip this
+  and could not start cleanly without the pipeline.
+- Missing inputs now have fallbacks instead of dead ends: blueprint without a
+  spec asks ≤5 questions and writes a mini spec; forge and jig without a plan
+  write one brief and confirm it; inspect and guild take `--base`.
+- Fixes from reviews and QA go to `/smithy:strike` (no plan needed) instead of
+  forge, which refused to run without one.
+- **One layout for every SKILL.md** (`references/skill-shape.md`): Start,
+  Needs (with what to do when something is missing), Steps (each with
+  `→ verify:`), Done when, Output with one `Next:` line.
+- **`references/memory-card.md`** (≈50 lines) replaces reading the full
+  `memory.md` in everyday skills.
+- Drift fixed: fix budgets always come from `max_fix_cycles`; ledger phase =
+  the skill's own name; one finding fingerprint (`envelope.md`); personas
+  named by file path; models named by routing role; bug fixes always
+  test-first (strike now sends bug items to the jigsmith).
+
+### Lookup tools for agents, with a guard
+- All five agents may use **read-only MCP tools**. Agents now use a
+  `disallowedTools` deny-list instead of a `tools:` allow-list: a live test
+  showed an `mcp__*` wildcard in `tools:` grants nothing in Claude Code
+  2.1.x, so an allow-list cut agents off from MCP. Every agent loses Agent,
+  Skill, cron and the like; inspector and annealer also lose Write and Edit.
+  Lookups available:
+  memory (claude-mem), code graph (understand-anything, graphify, …), docs
+  (context7, …). None are required; without them agents use Read/Grep.
+- **`scripts/mcp-guard.sh`** — a PreToolUse hook on `mcp__.*`: a tool whose
+  name says it sends, creates, updates or deletes (or says nothing known)
+  makes Claude Code **ask** the user first, even when the user's own rules
+  name the tool. Read tools get no decision, so normal permissions apply. It
+  never says "allow". Smithy-managed projects only, like `guard.sh`.
+- Creed §10 sets the budget (1 search, 1 timeline, 3 records) and the trust
+  order (code and `git log` > ledger > lookup results).
+
+### Plain English everywhere
+- Creed §8 **Finish the job**: a skill ends only when every Done-when item is
+  checked against real evidence; anything left is listed, never hidden.
+- Creed §9 **Voice**: simple English, short but complete, a picture (ASCII
+  flow, table, before/after) where it helps — for chat, specs, plans,
+  reports, code comments and script messages.
+- Every skill, agent, reference, persona, playbook, command alias and script
+  comment/message was rewritten to match. Script behavior is unchanged.
+
+### Fixed during the release review
+Four parallel reviewers (script bugs, prompt-vs-script interfaces, lost
+rules, cold standalone runs) found these; all are fixed and most have a test:
+- `mcp-guard` read a `tool_name` key hidden inside `tool_input` — it now
+  parses the JSON for real (unreadable → ask). A bare `query` / anything with
+  `sql` and `resolve_*` tools now ask (they can write); snapshots read.
+- Lanes: `record-base`/`build` used the project STATE.md while `start.sh` read
+  the lane's — two jobs could overwrite each other's base. Both now use the
+  current state folder (lane falls back to the project base).
+- The single final review never saw the implementers' reports (it pointed at
+  `forge-report.md` before it existed). The package now takes a reports folder.
+- `review-package … WORKTREE` missed untracked files; a misplaced `--base` was
+  silently ignored (now refused).
+- `tdd-snap`: a second GREEN after a full-suite fix failed verify (now allowed,
+  with a warning); multi-line notes broke the log; non-ASCII paths were
+  misread; deleting a test counted as RED; `..` in a name escaped the memory
+  folder; a symlinked memory folder leaked into pictures. Parallel tasks run
+  `verify` inside their own worktree.
+- `start.sh`: two runs at the same moment could get the same slug (now an
+  atomic `mkdir`); skill names and STATE's active job are validated.
+- Prompts: forge's one-task mode now writes a short plan.md for the review;
+  temper's envelope uses a valid kind; wield/hone keep the previous run as
+  `.prev` before writing, so trends work; skills that need a running app share
+  one "Run line" in decisions.md; restored creed §2 "verbatim" and the full §6
+  destructive list; the finding fingerprint keeps wield's pre-0.14 formula so
+  old trend files still match.
+
+### Found by live tests (`claude -p --plugin-dir`, installed copy disabled)
+- Agents could not reach MCP at all: an `mcp__*` wildcard in `tools:` grants
+  nothing in Claude Code 2.1.x → agents use a `disallowedTools` deny-list.
+  Checked live: the read-only annealer loads claude-mem via ToolSearch,
+  searches, and has no Write/Edit; the main session's MCP write was stopped
+  by mcp-guard.
+- Plugin paths in prompts had no `${CLAUDE_PLUGIN_ROOT}/` prefix, so the model
+  first looked for `references/creed.md` inside the skill folder (3 failed
+  reads per skill run). All 191 plugin paths in prompt files now carry it.
+- A false RED slipped through: a "throws TypeError" test passed before the
+  code existed (calling undefined also throws TypeError). The RED note is now
+  `<n> of <m> failing` and jig requires n = m.
+- End-to-end `/smithy:jig` on a toy repo after the fixes: one commit
+  (`feat: add slugify`), `7 of 7 failing` at RED, `tdd-verify: OK`, one
+  review APPROVED, 0 failed tool calls, $0.93 for the whole skill run.
+
+### Tests
+- New: `tdd-snap-matrix.sh`, `mcp-guard-matrix.sh` (real tool names from
+  common servers), `review-package-matrix.sh`, `start-matrix.sh`,
+  `skill-lint.sh` (layout, size, every referenced file exists, drift checks,
+  manifest versions agree).
+- Fixed: `worktree-matrix.sh` pointed at an old checkout path and had been
+  failing since 0.6.0.
+
 ## 0.13.0 — unreleased
 
 Model routing stops being a suggestion. A second PreToolUse hook forces every

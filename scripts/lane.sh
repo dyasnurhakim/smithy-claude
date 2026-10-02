@@ -1,41 +1,47 @@
 #!/usr/bin/env bash
-# lane.sh — parallel-safe state lanes for smithy.
+# lane.sh — state lanes, so parallel work does not clash over shared state.
 #
-# $SMITHY_MEM is ONE directory per project, anchored on the main worktree. That
-# is deliberate (a split ledger is worse than a shared one) but it means two
-# concurrent units of work — the tasks of a parallel forge batch, or two whole
-# pipelines — would append to the same ledger.md and overwrite the same
-# STATE.md. A lane gives each unit its own copy of the MUTABLE state, then
-# folds it back when the work lands.
+# $SMITHY_MEM is ONE folder per project, tied to the main worktree. That is on
+# purpose (one shared ledger beats a split one). But two pieces of work running
+# at once — the tasks of a parallel forge batch, or two whole pipelines — would
+# then append to the same ledger.md and overwrite the same STATE.md. A lane
+# gives each piece of work its own copy of the CHANGING state, and merges it
+# back when the work lands:
+#
+#   start ──▶ lanes/<name>/{STATE,ledger,decisions}.md ──▶ merge ──▶ project files
+#                    (work writes here)                     │
+#                                                           └──▶ lanes/.merged/<name>-<ts>/
 #
 #   lane.sh start <name> [--worktree <path>] [--job <slug>]
-#       Create $SMITHY_MEM/lanes/<name>/ seeded with a STATE.md. With
-#       --worktree, also drop a .smithy-lane marker in that checkout so every
-#       smithy script run inside it resolves this lane automatically — the
-#       agent needs to know nothing. Prints the lane's state dir.
+#       Create $SMITHY_MEM/lanes/<name>/ with a starting STATE.md. With
+#       --worktree, also write a .smithy-lane marker in that checkout. Then
+#       every smithy script run inside it finds this lane by itself — the
+#       agent needs to know nothing. Prints the lane's state folder.
 #   lane.sh current
-#       The lane resolved HERE (env > marker > none) and its state dir.
+#       The lane found HERE (env > marker > none) and its state folder.
 #   lane.sh list
 #       Every lane with its event count and last event.
 #   lane.sh merge <name>
-#       Fold the lane into the project state: ledger lines are union-merged in
-#       timestamp order, decisions.md is appended, the lane's STATE.md is
-#       archived, and the project STATE.md's "Last event" line is refreshed.
-#       The lane is then archived under lanes/.merged/<name>-<ts>/.
+#       Merge the lane into the project state:
+#         - ledger lines from both files are combined, in timestamp order;
+#         - the lane's decisions.md is appended to the project's;
+#         - the project STATE.md "Last event" line is updated.
+#       Then the whole lane folder (its STATE.md too) is archived (kept, not
+#       deleted) under lanes/.merged/<name>-<ts>/.
 #   lane.sh merge-all
-#       merge every active lane, oldest first. Use after a parallel batch has
+#       Merge every active lane, oldest first. Use it once a parallel batch has
 #       fully landed.
 #   lane.sh abandon <name>
 #       Archive a lane WITHOUT merging (its events never reach the ledger).
-#       For a batch that was rolled back. Never silently deletes.
+#       For a batch that was rolled back. Never deletes anything quietly.
 #   lane.sh status
-#       current + list + whether a merge is in progress.
+#       current + list + whether a merge is running.
 #
-# What a lane does NOT namespace: config.json (a lane is a unit of work, not a
-# different set of preferences), jobs/ (append-only artifacts whose filenames
-# already carry the job slug), personas/, DESIGN.md, and the guard tokens
-# (authorization is per project and per user, never per lane — a lane must not
-# be able to mint itself a commit grant).
+# What a lane does NOT get its own copy of: config.json (a lane is a piece of
+# work, not a different set of settings), jobs/ (files are only added, and
+# their names already carry the job slug), personas/, DESIGN.md, and the guard
+# tokens. Permission is per project and per user, never per lane: a lane must
+# never be able to give itself a commit grant.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,20 +56,20 @@ STATE_FILES="STATE.md ledger.md decisions.md"
 die() { echo "lane.sh: $*" >&2; exit 1; }
 ts()  { date -u +%Y-%m-%dT%H:%MZ; }
 
-require_name() { # validated by the same rule paths.sh uses to resolve a lane
+require_name() { # checked with the same rule paths.sh uses to find a lane
   [ -n "${1:-}" ] || die "lane name required"
   _smithy_lane_ok "$1" || die "invalid lane name '$1' — use [A-Za-z0-9._-], no leading dot, no '..'"
 }
 
 lane_dir() { echo "$LANES_DIR/$1"; }
 
-# The merge rewrites the shared ledger, so two controllers merging at once
-# could interleave. mkdir is atomic on every POSIX fs — a lock file written
-# with > would not be.
+# A merge rewrites the shared ledger, so two controllers merging at once could
+# mix their writes. We lock with mkdir: it is atomic (it fully succeeds or
+# fully fails) on every POSIX filesystem. A lock file written with > is not.
 lock_acquire() {
   mkdir -p "$LANES_DIR"
   if ! mkdir "$LOCK" 2>/dev/null; then
-    die "a merge is already in progress ($LOCK). If no other merge is running, remove that directory and retry."
+    die "a merge is already running ($LOCK). If no other merge is running, remove that folder and try again."
   fi
   trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
 }
@@ -71,8 +77,8 @@ lock_acquire() {
 seed_state() { # seed_state <lane-dir> <lane-name> <job>
   local dir="$1" name="$2" job="$3"
   if [ -f "$SMITHY_MEM/STATE.md" ]; then
-    # Carry the project's base sha / active job forward so the agent working in
-    # the lane is not starting blind.
+    # Copy the project's base sha and active job into the lane, so the agent
+    # working there does not start blind.
     sed "s|^# Smithy State$|# Smithy State (lane: $name)|" "$SMITHY_MEM/STATE.md" > "$dir/STATE.md"
   else
     cat > "$dir/STATE.md" <<EOF
@@ -108,7 +114,7 @@ case "${1:-}" in
     if [ -n "$worktree" ]; then
       [ -d "$worktree" ] || die "--worktree path does not exist: $worktree"
       printf '%s\n' "$name" > "$worktree/.smithy-lane" || die "cannot write the lane marker in $worktree"
-      echo "lane.sh: marker written — everything run inside $worktree now resolves lane '$name'" >&2
+      echo "lane.sh: marker written — everything run inside $worktree now uses lane '$name'" >&2
     fi
     echo "$dir"
     ;;
@@ -117,7 +123,7 @@ case "${1:-}" in
     if [ -n "${SMITHY_LANE:-}" ]; then
       echo "lane:      $SMITHY_LANE ($SMITHY_LANE_SOURCE)"
     else
-      echo "lane:      (none) — state goes to the shared project dir"
+      echo "lane:      (none) — state goes to the shared project folder"
     fi
     echo "state dir: $SMITHY_STATE_DIR"
     [ -n "${SMITHY_LANE_WARN:-}" ] && echo "WARNING:   $SMITHY_LANE_WARN" >&2
@@ -155,9 +161,10 @@ case "${1:-}" in
       main="$SMITHY_MEM/ledger.md"
       touch "$main"
       tmp="$main.merge.$$"
-      # Stable sort on the leading ISO timestamp. Timestamps are minute-
-      # granular so ties are common; -s keeps each file's internal order and
-      # puts the project's own events before the lane's within one minute.
+      # Sort by the ISO timestamp at the start of each line. Timestamps only
+      # go down to the minute, so ties are common. -s (stable sort) keeps each
+      # file's own order, and puts the project's events before the lane's
+      # when they share a minute.
       cat "$main" "$dir/ledger.md" | sort -s -k1,1 > "$tmp" || { rm -f "$tmp"; die "ledger merge failed"; }
       mv "$tmp" "$main" || die "could not replace $main"
       merged="$(wc -l < "$dir/ledger.md" | tr -d ' ')"
@@ -168,9 +175,9 @@ case "${1:-}" in
         >> "$SMITHY_MEM/decisions.md" || die "could not append decisions.md"
     fi
 
-    # Refresh only the machine-derivable line of the project STATE.md. Phase and
-    # Next step are semantic — the controller rewrites those; guessing here
-    # would put a wrong "next step" in front of the next session.
+    # Update only the STATE.md line a script can work out ("Last event").
+    # Phase and Next step need judgment, so the controller rewrites them.
+    # A guess here would show the next session a wrong "next step".
     if [ -f "$SMITHY_MEM/STATE.md" ] && [ -s "$SMITHY_MEM/ledger.md" ]; then
       last_line="$(tail -n 1 "$SMITHY_MEM/ledger.md")"
       lts="$(echo "$last_line"  | awk -F' \\| ' '{print $1}')"
@@ -184,11 +191,11 @@ case "${1:-}" in
 
     mkdir -p "$ARCHIVE_DIR"
     dest="$ARCHIVE_DIR/$name-$(date -u +%Y%m%dT%H%M%SZ)"
-    mv "$dir" "$dest" || die "merged, but could not archive the lane dir $dir"
+    mv "$dir" "$dest" || die "merged, but could not archive the lane folder $dir"
 
-    echo "merged lane '$name': $merged ledger event(s) folded into $SMITHY_MEM/ledger.md"
+    echo "merged lane '$name': $merged ledger event(s) added to $SMITHY_MEM/ledger.md"
     echo "archived: $dest"
-    echo "NOTE: STATE.md 'Last event' was refreshed; Phase and Next step are yours to rewrite."
+    echo "NOTE: STATE.md 'Last event' was updated. You must rewrite Phase and Next step yourself."
     ;;
 
   merge-all)
@@ -199,7 +206,7 @@ case "${1:-}" in
       base="$(basename "$dir")"
       [ "$base" = ".merged" ] && continue
       any=1
-      bash "$0" merge "$base" || die "merge-all stopped at lane '$base' — resolve it, then re-run"
+      bash "$0" merge "$base" || die "merge-all stopped at lane '$base' — fix it, then run again"
     done
     [ "$any" -eq 0 ] && echo "(no active lanes to merge)"
     true

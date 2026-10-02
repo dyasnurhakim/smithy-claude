@@ -2,28 +2,29 @@
 
 ## API (net/http, chi, gin, echo…)
 
-- Prefer **in-process QA** with `net/http/httptest`: spin the real router in
-  a test binary, drive it with real HTTP requests — no port juggling, real
-  middleware stack. Put these in a scratch `qa_test.go` under the job's
-  reports dir module or a `//go:build qa` tagged file — never commit QA
-  scaffolding into the production tree without asking.
-- Alternatively run the real binary (`go run ./cmd/...`), poll readiness,
-  drive with `curl`/Go http client scripts.
-- Per endpoint flow: happy path; validation failures (assert the 4xx code AND
-  the error body shape); auth failures (401/403); not-found; malformed JSON;
-  wrong content-type.
+- Prefer **in-process QA** with `net/http/httptest`: start the real router
+  inside a test binary and send it real HTTP requests — no port juggling,
+  the real middleware stack. Put these in a scratch `qa_test.go` under the
+  job's reports folder module, or in a `//go:build qa` tagged file. Never
+  commit QA scaffolding into the production tree without asking.
+- Or run the real binary (`go run ./cmd/...`), poll until it is ready, and
+  drive it with `curl` / Go http client scripts.
+- Per endpoint, test: the happy path; validation failures (check the 4xx code
+  AND the shape of the error body); auth failures (401/403); not-found;
+  malformed JSON; wrong content-type.
 - Error responses must not leak internals (`runtime error`, file paths,
-  SQL) — leak = High finding.
-- Side-effect checks: after mutating calls, read back and assert state.
+  SQL) — a leak is a High finding.
+- Side effects: after a call that changes data, read it back and check it.
 
 ## CLI
 
-- Drive via `go run ./cmd/tool` or the built binary with `os/exec`-style
+- Drive it with `go run ./cmd/tool` or the built binary, from `os/exec`-style
   scripts or plain shell: valid args, invalid args (usage on stderr +
-  nonzero exit), `--help`, empty/huge stdin. Assert exit codes and
-  stdout/stderr separation.
+  nonzero exit), `--help`, empty or huge stdin. Check exit codes, and that
+  stdout and stderr stay separate.
 
-## Console/log hygiene
+## Console / log hygiene
 
-- Capture the service's stderr during flows; panics recovered by middleware
-  still print stack traces — any panic trace during a QA flow is Critical.
+- Capture the service's stderr during flows. Middleware may recover from a
+  panic but still print the stack trace — any panic trace during a QA flow
+  is Critical.

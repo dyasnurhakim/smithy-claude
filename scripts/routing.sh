@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# routing.sh — resolve model/effort for a smithy pipeline role.
+# routing.sh — find the model and effort for a smithy role (a kind of work,
+# like review or testing).
 #
 # Usage:
 #   routing.sh <role>     -> "model=sonnet effort=medium"
-#   routing.sh --dump     -> effective table, one role per line, with source column
+#   routing.sh --dump     -> the table in effect: one role per line, plus where each value came from
 #   routing.sh --models   -> what this harness accepts as a model value
-#   routing.sh --roles    -> the role list
+#   routing.sh --roles    -> the list of roles
 #
-# Precedence, lowest first: plugin defaults -> $SMITHY_HOME/config.json (global,
-# all projects) -> <memory-dir>/config.json (this project). The memory dir is
-# resolved by paths.sh, so it need NOT be inside the repo.
+# Which config wins (later beats earlier):
+#   plugin defaults ──▶ $SMITHY_HOME/config.json ──▶ <memory-dir>/config.json
+#                       (global, all projects)       (this project)
+# paths.sh finds the memory folder, so it need NOT be inside the repo.
 #
-# Model values may be a tier (flagship/workhorse/fast), a family name
-# (opus/sonnet/haiku/fable, sol/terra/luna), `inherit`, or any id matching the
-# harness's id_patterns in defaults/models.json — which is why a new model
-# release needs no change here. Cross-family values translate BY TIER.
+# A model value may be a tier (flagship/workhorse/fast), a family name
+# (opus/sonnet/haiku/fable, sol/terra/luna), `inherit`, or any id that matches
+# the harness's id_patterns in defaults/models.json. So a new model release
+# needs no change here. A value from another harness's family is translated
+# BY TIER (e.g. sol is flagship, so under Claude it becomes opus).
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,7 +28,7 @@ export SMITHY_DEFAULTS SMITHY_GLOBAL_CONFIG SMITHY_PROJECT_CONFIG SMITHY_MODELS 
 LIB="$SCRIPT_DIR/lib/smithy_config.py"
 [ -f "$SMITHY_DEFAULTS" ] || { echo "routing.sh: defaults not found at $SMITHY_DEFAULTS" >&2; exit 1; }
 [ -f "$LIB" ] || { echo "routing.sh: helper not found at $LIB" >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "routing.sh: python3 is required (used to parse config JSON) but not on PATH" >&2; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "routing.sh: python3 is required (it reads the config JSON) but is not on PATH" >&2; exit 1; }
 
 cfg() { python3 "$LIB" "$@"; }
 

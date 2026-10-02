@@ -1,37 +1,46 @@
 #!/usr/bin/env bash
-# guard.sh — smithy guard rails: git safety + destructive-operation protection.
+# guard.sh — smithy's safety guard for git and destructive commands.
 #
-#   guard.sh hook                 PreToolUse Bash hook mode: reads the hook JSON
-#                                 on stdin, exits 0 (allow) or 2 (block, reason
-#                                 on stderr). Enforces ONLY in projects whose
-#                                 smithy memory dir exists (smithy-managed) —
-#                                 wherever paths.sh resolves it to.
-#   guard.sh check "<command>"    Test a command string directly (same rules).
-#   guard.sh grant <job>          Authorize `git commit` for this job (written
-#                                 at plan-gate approval). File: <mem>/.git-grant
-#   guard.sh revoke               Remove all grants/tokens (job end / handover).
-#   guard.sh allow-push-once      Mint a ONE-SHOT push token (live user yes only).
-#   guard.sh allow-once           Mint a ONE-SHOT destructive-command token
-#                                 (live user yes only) — permits the NEXT
-#                                 otherwise-blocked destructive command (not push).
-#   guard.sh status               Show current grant/token state.
+#   guard.sh hook                 Hook mode. Claude Code runs it before EVERY
+#                                 Bash call (a PreToolUse hook). Reads the hook
+#                                 JSON on stdin. Exit 0 = allow, exit 2 = block
+#                                 (the reason goes to stderr). It acts ONLY in
+#                                 smithy-managed projects: those whose smithy
+#                                 memory folder exists, wherever paths.sh finds it.
+#   guard.sh check "<command>"    Test one command string. Same rules.
+#   guard.sh grant <job>          Allow `git commit` for this job. Written when
+#                                 the user approves the plan gate.
+#                                 File: <mem>/.git-grant
+#   guard.sh revoke               Remove every grant and token (job end / handover).
+#   guard.sh allow-push-once      Make a ONE-USE push token. Only after a live user yes.
+#   guard.sh allow-once           Make a ONE-USE destructive-command token. Only
+#                                 after a live user yes. It lets the NEXT blocked
+#                                 destructive command run (never a push).
+#   guard.sh status               Show which grant and tokens exist now.
 #
-# Policy (deterministic — prompt rules cannot override this):
-#   - git: push needs a one-shot push token; commit needs the job grant;
-#     history rewrites and force flags always blocked
-#   - destructive ops (filesystem, cloud, IaC, containers, databases) are
-#     blocked unless a one-shot destructive token exists (consumed on use)
+# Rules (fixed in code — a prompt cannot change them):
+#
+#   command                              allowed when
+#   ───────────────────────────────────  ──────────────────────────────────
+#   git push                             a push token exists (one push uses it up)
+#   git commit                           the job's commit grant exists
+#   force push, reset --hard, rebase,    never — always blocked
+#   commit --amend, other history edits
+#   destructive: files, cloud, IaC       a destructive token exists
+#   (infrastructure as code),            (one command uses it up)
+#   containers, databases
 set -u
 
-# Grants/tokens live in the MAIN worktree's memory dir — linked worktrees
-# created for parallel tasks share the main repo's authorization. paths.sh
-# resolves that dir wherever it lives (it need not be inside the repo).
+# Grants and tokens live in the MAIN worktree's memory folder. Linked worktrees
+# (made for parallel tasks) share the main repo's grants. paths.sh finds that
+# folder wherever it lives (it need not be inside the repo).
 #
-# SMITHY_PATHS_FAST=1 keeps resolution to pure bash: this runs on the PreToolUse
-# hook path, i.e. before EVERY Bash call, so it must not spawn an interpreter.
-# Fast mode skips only the "where would a NEW dir go" rule, which cannot matter
-# here — init-memory.sh registers every non-default location in projects.tsv,
-# and an unresolved dir means "not smithy-managed", which is a no-op below.
+# SMITHY_PATHS_FAST=1 keeps path lookup in pure bash. This script runs before
+# EVERY Bash call, so it must not start an interpreter (like python).
+# Fast mode skips only one rule: "where would a NEW folder go". That rule cannot
+# matter here. init-memory.sh records every non-default location in
+# projects.tsv, and a folder that is not found means "not smithy-managed",
+# so the guard does nothing.
 SMITHY_PATHS_FAST=1
 # shellcheck source=./paths.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/paths.sh"
@@ -40,16 +49,17 @@ GRANT="$MEM/.git-grant"
 PUSH_TOKEN="$MEM/.push-once"
 DESTRUCTIVE_TOKEN="$MEM/.destructive-once"
 
-block() { echo "[smithy-guard] BLOCKED: $1 Ask the user; after a live yes they can mint a one-shot override (guard.sh allow-once)." >&2; exit 2; }
+block() { echo "[smithy-guard] BLOCKED: $1 Ask the user. Only after a live yes, run 'guard.sh allow-once' to allow this one command." >&2; exit 2; }
 block_hard() { echo "[smithy-guard] BLOCKED: $1" >&2; exit 2; }
 
-# deny <case-flag> <regex> <message>  — destructive rule with allow-once escape
+# deny <case-flag> <regex> <message> — one destructive-command rule.
+# A destructive token (from allow-once) lets one match through, then is deleted.
 deny() {
   local flag="$1" re="$2" msg="$3"
   if echo "$CMD" | grep -q"$flag"E "$re"; then
     if [ -f "$DESTRUCTIVE_TOKEN" ]; then
       rm -f "$DESTRUCTIVE_TOKEN"
-      echo "[smithy-guard] destructive command allowed — one-shot token consumed ($msg)" >&2
+      echo "[smithy-guard] destructive command allowed — the one-use token is now used up ($msg)" >&2
       exit 0
     fi
     block "$msg."
@@ -58,12 +68,12 @@ deny() {
 
 evaluate() { # evaluate <command string>
   CMD="$1"
-  # not a smithy-managed project -> no enforcement
+  # Not a smithy-managed project -> do nothing.
   [ -d "$MEM" ] || exit 0
 
-  # ---------- git: push / commit / history (own token & grant mechanics) ----------
+  # ---------- git: push / commit / history (push token and commit grant) ----------
   echo "$CMD" | grep -qE 'git[^|;&]*push[^|;&]*(--force|-f\b|--force-with-lease)' && \
-    block_hard "force push. Never allowed by smithy guard."
+    block_hard "force push. Never allowed."
   echo "$CMD" | grep -qE 'git[^|;&]*reset[^|;&]*--hard' && \
     block_hard "git reset --hard. Use git stash or ask the user."
   echo "$CMD" | grep -qE 'git[^|;&]*\brebase\b' && \
@@ -73,30 +83,30 @@ evaluate() { # evaluate <command string>
   echo "$CMD" | grep -qE 'git[^|;&]*\bclean\b[^|;&]*-[a-zA-Z]*[fdx]' && \
     block_hard "git clean -f/-d/-x. Ask the user."
   echo "$CMD" | grep -qE 'git[^|;&]*commit[^|;&]*--amend' && \
-    block_hard "git commit --amend. History rewrites need the user."
+    block_hard "git commit --amend. Only the user may rewrite history."
   echo "$CMD" | grep -qE 'git[^|;&]*(filter-branch|update-ref[^|;&]* -d)' && \
-    block_hard "git history surgery. Ask the user."
+    block_hard "git history rewrite (filter-branch / update-ref -d). Ask the user."
 
   if echo "$CMD" | grep -qE 'git[^|;&]*\bpush\b'; then
     if [ -f "$PUSH_TOKEN" ]; then
       rm -f "$PUSH_TOKEN"
-      echo "[smithy-guard] push allowed — one-shot token consumed." >&2
+      echo "[smithy-guard] push allowed — the one-use token is now used up." >&2
       exit 0
     fi
-    block_hard "git push. Needs a live user yes: run 'guard.sh allow-push-once' ONLY after the user approves this specific push."
+    block_hard "git push. Needs a live user yes for THIS push. Only then run 'guard.sh allow-push-once'."
   fi
   if echo "$CMD" | grep -qE 'git[^|;&]*\bcommit\b'; then
-    [ -f "$GRANT" ] || block_hard "git commit without a grant. Commits are authorized when the user approves the plan gate (guard.sh grant <job>). Ask the user."
+    [ -f "$GRANT" ] || block_hard "git commit with no grant. Commits are allowed once the user approves the plan gate (guard.sh grant <job>). Ask the user."
   fi
 
   # ---------- filesystem ----------
   if echo "$CMD" | grep -qE '\brm\b[^|;&]+-([a-zA-Z]*r[a-zA-Z]*f|[a-zA-Z]*f[a-zA-Z]*r)\b'; then
     echo "$CMD" | grep -qE '\brm\b[^|;&]+(-[a-zA-Z]+ +)*(/|~|\.\.)' && \
-      deny '' '.' "rm -rf on an absolute/~/.. path"
+      deny '' '.' "rm -rf on a path that starts with /, ~ or .."
   fi
   deny ''  '\bfind\b[^|;&]*[[:space:]]-delete\b'                    "find -delete (bulk file deletion)"
-  deny ''  '\brsync\b[^|;&]*--delete'                               "rsync --delete (mirrors deletions to the target)"
-  deny ''  '\bshred\b'                                              "shred (unrecoverable file destruction)"
+  deny ''  '\brsync\b[^|;&]*--delete'                               "rsync --delete (also deletes files on the target)"
+  deny ''  '\bshred\b'                                              "shred (destroys files for good)"
   deny ''  '\bmkfs(\.[a-z0-9]+)?\b'                                 "mkfs (formats a filesystem)"
   deny ''  '\bdd\b[^|;&]*\bof=/dev/'                                "dd writing to a raw device"
   deny ''  '\btruncate\b[^|;&]*-s[[:space:]]*0'                     "truncate to zero (destroys file contents)"
@@ -112,7 +122,7 @@ evaluate() { # evaluate <command string>
   deny ''  '\bvercel\b[^|;&]*\b(remove|rm)\b'                       "vercel remove"
   deny ''  '\bnetlify\b[^|;&]*sites:delete'                         "netlify sites:delete"
 
-  # ---------- infrastructure as code ----------
+  # ---------- infrastructure as code (IaC) ----------
   deny ''  '\bterraform\b[^|;&]*\bdestroy\b'                        "terraform destroy"
   deny ''  '\bterraform\b[^|;&]*\bapply\b[^|;&]*-destroy'           "terraform apply -destroy"
   deny ''  '\bpulumi\b[^|;&]*\b(destroy|stack rm)\b'                "pulumi destroy / stack rm"
@@ -141,7 +151,7 @@ evaluate() { # evaluate <command string>
   deny ''  '\bredis-cli\b[^|;&]*\bflush(all|db)\b'                  "redis FLUSHALL/FLUSHDB"
   deny 'i' '\bmongo(sh)?\b[^|;&]*(dropDatabase|\.drop\()'           "MongoDB drop"
 
-  # ---------- migration/data resets ----------
+  # ---------- migration and data resets ----------
   deny ''  '\bprisma\b[^|;&]*\bmigrate\b[^|;&]*\breset\b'           "prisma migrate reset (drops the database)"
   deny ''  '\b(rails|rake)\b[^|;&]*\bdb:(drop|reset|purge)\b'       "rails db:drop/reset/purge"
   deny ''  '\bartisan\b[^|;&]*\bmigrate:(fresh|reset)\b'            "artisan migrate:fresh/reset"
@@ -177,17 +187,17 @@ except Exception: print("")' 2>/dev/null || true)"
   allow-push-once)
     mkdir -p "$MEM"
     date -u +%Y-%m-%dT%H:%MZ > "$PUSH_TOKEN"
-    echo "one-shot push token minted ($PUSH_TOKEN) — consumed by the next push"
+    echo "one-use push token made ($PUSH_TOKEN) — the next push uses it up"
     ;;
   allow-once)
     mkdir -p "$MEM"
     date -u +%Y-%m-%dT%H:%MZ > "$DESTRUCTIVE_TOKEN"
-    echo "one-shot destructive-command token minted ($DESTRUCTIVE_TOKEN) — consumed by the next blocked destructive command (push excluded)"
+    echo "one-use destructive-command token made ($DESTRUCTIVE_TOKEN) — the next blocked destructive command uses it up (never a push)"
     ;;
   status)
     [ -f "$GRANT" ] && { echo "commit grant:"; sed 's/^/  /' "$GRANT"; } || echo "commit grant: none"
-    [ -f "$PUSH_TOKEN" ] && echo "push token: present (one-shot)" || echo "push token: none"
-    [ -f "$DESTRUCTIVE_TOKEN" ] && echo "destructive token: present (one-shot)" || echo "destructive token: none"
+    [ -f "$PUSH_TOKEN" ] && echo "push token: present (one-use)" || echo "push token: none"
+    [ -f "$DESTRUCTIVE_TOKEN" ] && echo "destructive token: present (one-use)" || echo "destructive token: none"
     ;;
   *)
     echo "usage: guard.sh hook|check|grant|revoke|allow-push-once|allow-once|status" >&2; exit 3 ;;

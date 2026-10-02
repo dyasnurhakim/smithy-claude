@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""smithy_config.py — layered config reads/writes + model-registry resolution.
+"""smithy_config.py — read and write layered config, and look up models in the
+model registry (defaults/models.json: which model names each harness accepts).
 
-Deliberately knows NOTHING about where files live: every path arrives via the
-environment, set by scripts/paths.sh. That keeps one answer to "where?" (bash,
-hook-safe) and one answer to "what?" (here, JSON-shaped).
+It knows NOTHING about where files live, on purpose. Every path comes in
+through the environment, set by scripts/paths.sh. So "where?" has one answer
+(bash, safe to run in a hook) and "what?" has one answer (here, in JSON).
 
-Config layers, lowest precedence first:
+Config layers — a later layer wins:
     defaults   $SMITHY_DEFAULTS         plugin defaults, never edited per project
     global     $SMITHY_GLOBAL_CONFIG    $SMITHY_HOME/config.json  — all projects
     project    $SMITHY_PROJECT_CONFIG   <memory-dir>/config.json  — this project
 
-Model registry, lowest precedence first:
+Model registry — a later file wins:
     $SMITHY_MODELS           plugin defaults/models.json
-    $SMITHY_GLOBAL_MODELS    $SMITHY_HOME/models.json — add families locally
+    $SMITHY_GLOBAL_MODELS    $SMITHY_HOME/models.json — add your own families here
 
 Commands (all output is TAB-separated; warnings go to stderr):
     harness
     roles
     layers                       -> layer  path  exists
-    get <dotted.key>             -> value          (exit 1 if absent everywhere)
+    get <dotted.key>             -> value          (exit 1 if no layer has it)
     get-source <dotted.key>      -> layer name
     routing [<role>]             -> role  model  effort  source
     models                       -> name  tier  kind
@@ -56,17 +57,18 @@ def layer_path(layer: str) -> str:
 
 
 def load_json(path: str, label: str) -> dict:
-    """Missing file -> {} (expected for sparse layers). Malformed -> {} + a LOUD
-    warning: silently ignoring it would hide that overrides stopped applying."""
+    """Missing file -> {} (normal: most layers set only a few keys).
+    Broken JSON -> {} plus a LOUD warning. Ignoring it quietly would hide that
+    the overrides stopped working."""
     if not path or not os.path.isfile(path):
         return {}
     try:
         data = json.load(open(path))
     except Exception as exc:
-        warn(f"WARNING: {path} is not valid JSON ({exc}) — ALL {label} overrides ignored")
+        warn(f"WARNING: {path} is not valid JSON ({exc}) — ALL {label} overrides are ignored")
         return {}
     if not isinstance(data, dict):
-        warn(f"WARNING: {path} is not a JSON object — ALL {label} overrides ignored")
+        warn(f"WARNING: {path} is not a JSON object — ALL {label} overrides are ignored")
         return {}
     return data
 
@@ -86,7 +88,7 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 
 def dig(data, dotted: str):
-    """-> (found, value). Comment keys ('//...') are never addressable."""
+    """-> (found, value). Comment keys ('//...') can never be read as values."""
     cur = data
     for part in dotted.split("."):
         if not isinstance(cur, dict) or part not in cur:
@@ -96,12 +98,19 @@ def dig(data, dotted: str):
 
 
 def lookup(layers: dict[str, dict], dotted: str):
-    """-> (found, value, layer) — highest-precedence layer holding this leaf."""
+    """-> (found, value, layer) — from the winning layer that has this key."""
     for ly in reversed(LAYERS):
         found, val = dig(layers[ly], dotted)
         if found:
             return True, val, ly
     return False, None, "none"
+
+
+# Old values that were renamed. `get` still accepts them and prints the new
+# name, with a one-line note, so an old config keeps working unchanged.
+RENAMED_VALUES = {
+    "implementation.tdd_commits": {"git": "stages", "local": "clean"},
+}
 
 
 def render(value) -> str:
@@ -137,10 +146,12 @@ def resolve_model(value: str, harness: str, reg: dict):
     """-> (final|None, kind). kind: native | tier | translated | pattern
                                    | foreign | invalid | inherit
 
-    Ordered so that a name native to the ACTIVE harness always wins over a
-    pattern that would also match it, and cross-family translation happens by
-    TIER rather than by name — which is what keeps the registry version-proof:
-    a model nobody has heard of yet still resolves via id_patterns."""
+    The checks run in this order so that:
+      - a name that belongs to the ACTIVE harness always beats a pattern that
+        would also match it;
+      - a name from another harness is translated BY TIER, not by name.
+    This keeps the registry safe for new releases: a model nobody knows yet
+    still resolves through id_patterns."""
     if value == "inherit":
         return value, "inherit"
 
@@ -174,8 +185,8 @@ def resolve_model(value: str, harness: str, reg: dict):
 
 # -------------------------------------------------------------- routing ------
 def role_list(layers: dict[str, dict]) -> list[str]:
-    """Roles are whatever the DEFAULTS layer declares — adding a role is a
-    defaults/config.json edit, never a code edit."""
+    """Roles are whatever the DEFAULTS layer lists. Adding a role means editing
+    defaults/config.json, never the code."""
     roles = list((layers["defaults"].get("routing") or {}).keys())
     return [r for r in roles if not r.startswith("//")]
 
@@ -250,18 +261,19 @@ def parse_value(raw: str):
 
 def set_key(layer: str, dotted: str, raw: str) -> None:
     if layer == "defaults":
-        die("refusing to write the plugin defaults layer — use --global or --project", 3)
+        die("will not write the plugin defaults layer — use --global or --project", 3)
     path = layer_path(layer)
     if not path:
-        die(f"no path for layer '{layer}' (is paths.sh sourced?)", 3)
+        die(f"no path for layer '{layer}' (was paths.sh sourced?)", 3)
 
     value = parse_value(raw)
     layers = load_layers()
 
-    # Compare RAW tokens against the layer below: prune only when the write
-    # would be a literal no-op. Comparing RESOLVED values instead would silently
-    # drop e.g. project review=opus over a defaults flagship, and calibrate's
-    # verify step would then correctly refuse to call it a success.
+    # Compare the RAW value with the layer below, and remove the key only when
+    # the write would change nothing at all. Comparing RESOLVED values would be
+    # wrong: e.g. project review=opus over a defaults "flagship" (which also
+    # means opus) would be quietly dropped, and calibrate's check would then
+    # rightly refuse to call the write a success.
     below = [ly for ly in LAYERS if LAYERS.index(ly) < LAYERS.index(layer)]
     inherited, inherited_found = None, False
     for ly in reversed(below):
@@ -327,9 +339,14 @@ def main(argv: list[str]) -> int:
     if cmd == "get":
         if len(rest) != 1:
             die("usage: get <dotted.key>")
-        found, val, _ = lookup(layers, rest[0])
+        found, val, ly = lookup(layers, rest[0])
         if not found:
             return 1
+        renamed = RENAMED_VALUES.get(rest[0], {})
+        if isinstance(val, str) and val in renamed:
+            warn(f"NOTE: {rest[0]}='{val}' ({ly} config) is the old name — using '{renamed[val]}'. "
+                 f"Update it with /smithy:calibrate.")
+            val = renamed[val]
         print(render(val))
         return 0
 
@@ -357,10 +374,10 @@ def main(argv: list[str]) -> int:
         return 0
 
     if cmd == "banners":
-        # Effort is prose, not a dispatch parameter — route_guard.py stamps
-        # these onto subagent prompts. An effort with no banner prints an empty
-        # text field rather than vanishing: the guard must be able to tell
-        # "unknown effort" from "banner deliberately blanked".
+        # Effort is text in the prompt, not a dispatch parameter: route_guard.py
+        # puts these banners at the top of subagent prompts. An effort with no
+        # banner prints an EMPTY text field instead of no row, so the guard can
+        # tell "unknown effort" from "banner left blank on purpose".
         banners = reg.get("effort_banners", {}) or {}
         wanted = rest or reg.get("efforts", [])
         for effort in wanted:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -u
-S=/home/dyasnurhakim/claude-agent/smithy/scripts
+S="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts"
 BASE_DIR="$(mktemp -d)"
 trap 'rm -rf "$BASE_DIR"' EXIT
 cd "$BASE_DIR" && mkdir repo && cd repo

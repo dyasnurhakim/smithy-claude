@@ -1,25 +1,44 @@
 #!/usr/bin/env bash
-# review-package.sh — build the file a code-reviewer agent reads.
+# review-package.sh — build the one file a reviewer reads.
 #
-# Usage:
 #   review-package.sh record-base
-#       Record current HEAD as the review base: updates the "- Base sha:" line
-#       in docs/smithy/STATE.md. Run BEFORE dispatching an implementor.
-#   review-package.sh build <brief-file> <out-file> [implementor-report-file] [ref]
-#       Build a review package from BASE..<ref> (default ref: HEAD; pass a
-#       branch like smithy/<job>/<task> to review a parallel task's branch
-#       before absorbing it). BASE is read from STATE.md — never HEAD~1,
-#       which silently drops all but the last commit.
+#       Save the current HEAD as the JOB's base (the "- Base sha:" line in
+#       STATE.md). Run it ONCE, when a job starts — never per task, or the
+#       final review would only see the last task.
+#
+#   review-package.sh build [--base <ref>] <brief> <out> [report] [target] [path...]
+#       Write a review package: the brief, the commit list, the changed-file
+#       list and the diff from BASE to TARGET.
+#         --base <ref>  compare from this ref instead of STATE.md's base.
+#                       Must come right after "build" (arguments are by position).
+#                       Use it for standalone reviews: it never edits STATE.md,
+#                       so another job's base is left alone.
+#         report        an implementer report file, OR a reports folder, or ""
+#                       for none (use "" when you only want to give a target).
+#         target        HEAD (default), a branch such as smithy/<job>/<task>,
+#                       or WORKTREE to include uncommitted AND untracked files.
+#         path...       only show the diff for these paths (the file list
+#                       still shows everything).
+#
+#   BASE ──────────── commits ──────────── TARGET
+#    │                                       │
+#    └──── one diff: everything the job did ─┘   (never HEAD~1: that drops
+#                                                 all but the last commit)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./paths.sh
 . "$SCRIPT_DIR/paths.sh"
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "review-package.sh: not a git repo" >&2; exit 1; }
-# Diffs come from THIS worktree (a parallel task branch may be checked out in a
-# linked one); STATE lives in the project's single memory dir, wherever that is.
+# Diffs come from THIS worktree (a parallel task branch may be checked out in
+# a linked one). STATE.md is the CURRENT state folder's: a lane's own when a
+# lane is active (so two jobs never overwrite each other's base), else the
+# project's. A lane with no base yet falls back to the project's STATE.md.
 PROJECT_ROOT="$SMITHY_ROOT"
-STATE="$SMITHY_MEM/STATE.md"
+STATE="$SMITHY_STATE_DIR/STATE.md"
+PROJECT_STATE="$SMITHY_MEM/STATE.md"
+read_base() { grep -m1 '^- Base sha:' "$1" 2>/dev/null | awk '{print $4}'; }
+USAGE="usage: review-package.sh record-base | build [--base <ref>] <brief> <out> [impl-report] [target] [path...]"
 
 case "${1:-}" in
   record-base)
@@ -27,7 +46,7 @@ case "${1:-}" in
     mkdir -p "$(dirname "$STATE")"
     touch "$STATE"
     if grep -q '^- Base sha:' "$STATE"; then
-      # portable in-place edit (BSD/macOS sed -i needs a suffix arg; avoid entirely)
+      # Write a temp file and move it: works the same on GNU and BSD/macOS sed.
       sed "s|^- Base sha:.*|- Base sha: $sha|" "$STATE" > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"
     else
       printf -- '- Base sha: %s\n' "$sha" >> "$STATE"
@@ -35,54 +54,93 @@ case "${1:-}" in
     echo "base=$sha"
     ;;
   build)
-    [ $# -ge 3 ] || { echo "usage: review-package.sh build <brief> <out> [impl-report] [ref] [pathspec...]" >&2; exit 2; }
-    brief="$2"; out="$3"; report="${4:-}"; ref="${5:-HEAD}"
-    shift; shift; shift; [ $# -gt 0 ] && shift; [ $# -gt 0 ] && shift
-    # remaining args = optional pathspecs to scope the diff (persona slices)
+    shift
+    base=""
+    if [ "${1:-}" = "--base" ]; then
+      [ -n "${2:-}" ] || { echo "review-package.sh: --base needs a ref" >&2; exit 2; }
+      base="$2"; shift 2
+    fi
+    [ $# -ge 2 ] || { echo "$USAGE" >&2; exit 2; }
+    for a in "$@"; do
+      case "$a" in --*) echo "review-package.sh: '$a' is in the wrong place — options go right after 'build'" >&2; exit 2 ;; esac
+    done
+    brief="$1"; out="$2"; report="${3:-}"; target="${4:-HEAD}"
+    shift 2; [ $# -gt 0 ] && shift; [ $# -gt 0 ] && shift
     PATHSPEC=("$@")
-    # diff context lines: layered config key review_diff_context (default 5)
-    U="$(bash "$SCRIPT_DIR/config.sh" get review_diff_context 2>/dev/null)"
+    # How many context lines around each change (config key review_diff_context, default 5).
+    U="$(bash "$SCRIPT_DIR/config.sh" get review_diff_context 2>/dev/null)" || U=""
     case "$U" in ''|*[!0-9]*) U=5 ;; esac
     [ -f "$brief" ] || { echo "review-package.sh: brief not found: $brief" >&2; exit 1; }
-    base="$(grep -m1 '^- Base sha:' "$STATE" 2>/dev/null | awk '{print $4}')" || true
-    [ -n "${base:-}" ] && [ "$base" != "none" ] || { echo "review-package.sh: no base sha in $STATE — run record-base first" >&2; exit 1; }
-    git -C "$PROJECT_ROOT" cat-file -e "$base" 2>/dev/null || { echo "review-package.sh: base sha $base not found in repo" >&2; exit 1; }
+    if [ -z "$base" ]; then
+      base="$(read_base "$STATE")" || true
+      if { [ -z "${base:-}" ] || [ "$base" = "none" ]; } && [ "$STATE" != "$PROJECT_STATE" ]; then
+        base="$(read_base "$PROJECT_STATE")" || true
+      fi
+      [ -n "${base:-}" ] && [ "$base" != "none" ] || {
+        echo "review-package.sh: no base in $STATE — pass --base <ref>, or run record-base when the job starts" >&2; exit 1; }
+    fi
+    git -C "$PROJECT_ROOT" rev-parse --verify -q "$base^{commit}" >/dev/null || { echo "review-package.sh: base '$base' is not a commit in this repo" >&2; exit 1; }
+    if [ "$target" = "WORKTREE" ]; then
+      head_label="working tree (uncommitted and untracked files included)"
+      log_range="$base..HEAD"
+      diff_args=("$base")
+      # Plain `git diff <base>` skips files git does not track yet. Mark them
+      # "intent to add" in a throw-away COPY of the index, so the real index
+      # and your files are never touched.
+      tmp_index="$(mktemp)"
+      real_index="$(git -C "$PROJECT_ROOT" rev-parse --git-path index)"
+      case "$real_index" in /*) ;; *) real_index="$PROJECT_ROOT/$real_index" ;; esac
+      if [ -f "$real_index" ]; then cp "$real_index" "$tmp_index"; else rm -f "$tmp_index"; fi
+      GIT_INDEX_FILE="$tmp_index" git -C "$PROJECT_ROOT" add -N -A -- . >/dev/null 2>&1 || true
+      export GIT_INDEX_FILE="$tmp_index"
+      trap 'rm -f "$tmp_index"' EXIT
+    else
+      git -C "$PROJECT_ROOT" rev-parse --verify -q "$target^{commit}" >/dev/null || { echo "review-package.sh: target '$target' is not a commit" >&2; exit 1; }
+      head_label="$(git -C "$PROJECT_ROOT" rev-parse "$target") ($target)"
+      log_range="$base..$target"
+      diff_args=("$base..$target")
+    fi
     mkdir -p "$(dirname "$out")"
     {
       echo "# Review Package"
       echo
       echo "Base: $base"
-      echo "Head: $(git -C "$PROJECT_ROOT" rev-parse "$ref") ($ref)"
+      echo "Head: $head_label"
       echo
       echo "## Task Brief"
       echo
       cat "$brief"
       echo
-      echo "## Commits ($base..$ref)"
+      echo "## Commits ($log_range)"
       echo
-      git -C "$PROJECT_ROOT" log --oneline "$base..$ref"
+      git -C "$PROJECT_ROOT" log --oneline "$log_range"
       echo
-      echo "## Changed files (full list, before any path scoping)"
+      echo "## Changed files (all of them, before any path filter)"
       echo
-      git -C "$PROJECT_ROOT" diff --stat "$base..$ref"
+      git -C "$PROJECT_ROOT" diff --stat "${diff_args[@]}"
       echo
       if [ ${#PATHSPEC[@]} -gt 0 ]; then
-        echo "## Diff (-U$U) — SCOPED to: ${PATHSPEC[*]} (full file list above)"
+        echo "## Diff (-U$U) — ONLY for: ${PATHSPEC[*]} (full file list above)"
         echo
-        git -C "$PROJECT_ROOT" diff -U"$U" "$base..$ref" -- "${PATHSPEC[@]}"
+        git -C "$PROJECT_ROOT" diff -U"$U" "${diff_args[@]}" -- "${PATHSPEC[@]}"
       else
         echo "## Full Diff (-U$U)"
         echo
-        git -C "$PROJECT_ROOT" diff -U"$U" "$base..$ref"
+        git -C "$PROJECT_ROOT" diff -U"$U" "${diff_args[@]}"
       fi
-      if [ -n "$report" ] && [ -f "$report" ]; then
+      if [ -n "$report" ] && [ -e "$report" ]; then
         echo
-        echo "## Implementor Report (UNVERIFIED — do not trust; verify every claim)"
-        echo "Read it at: $report"
+        echo "## Implementer reports (NOT checked — verify every claim yourself)"
+        if [ -d "$report" ]; then
+          echo "Read the reports in: $report"
+          find "$report" -maxdepth 1 -type f -name '*.md' | sort | sed 's/^/- /'
+        else
+          echo "Read it at: $report"
+        fi
       fi
     } > "$out"
     echo "package=$out lines=$(wc -l < "$out")"
     ;;
   *)
-    echo "usage: review-package.sh record-base | build <brief> <out> [impl-report]" >&2; exit 2 ;;
+    echo "$USAGE" >&2; exit 2 ;;
 esac

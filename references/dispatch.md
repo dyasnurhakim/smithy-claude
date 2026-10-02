@@ -1,99 +1,70 @@
-# Smithy Dispatch Protocol
+# Smithy Dispatch — how skills hand work to agents
 
-How skills dispatch the five smithy agents with routed models, bounded
-context, and verifiable output.
+Read this only in skills that dispatch agents. It covers: which model,
+what goes in the prompt, the brief, statuses, the review, and retries.
 
-| Agent | Role (routing) | Writes? | Dispatched by |
+| Agent | Routing role | Writes | Used by |
 |---|---|---|---|
-| `forger` | implementation | source + tests | forge, anneal (fix step) |
-| `jigsmith` | implementation | tests then source (TDD, RED→GREEN per requirement) | forge/jig when `implementation.tdd` selects TDD |
-| `inspector` | review | nothing (read-only + report) | inspect, forge (per task) |
-| `annealer` | debugging | nothing (read-only + report) | anneal |
-| `temperer` | testing | test files/configs only | ring-test, wield, proof, hone |
+| `forger` | implementation | code + tests, one commit | forge, strike, anneal (fix) |
+| `jigsmith` | implementation | tests first, then code, one commit | forge/jig when TDD is on |
+| `inspector` | review | nothing (report only) | inspect, forge/strike (final review), guild |
+| `annealer` | debugging | nothing (report only) | anneal |
+| `temperer` | testing | test files and test config only | ring-test, wield, proof, hone |
 
-## 1. Resolve routing
+All five can also use **read-only MCP lookup tools** (memory, code graph,
+docs — creed §10). Tools that change things make Claude Code ask the user
+first (the `mcp-guard` hook).
+
+## 1. Model and effort
 
 Before every dispatch:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh <role>
-→ model=sonnet effort=medium
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/routing.sh <role>   → model=sonnet effort=medium
 ```
 
 Roles: `research planning implementation review debugging testing mechanical`.
 
-Persona overlays: every agent type can carry one (see
-`${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md` — builders get
-engineer + at most one domain specialist; tester suite-matched; annealer
-symptom-matched; inspector contextual). The brief's `## Persona` section
-names the file(s); the agent adapts per its mode.
+- Pass `model` as the Agent tool's `model` parameter (omit it when the value
+  is `inherit`). If the account rejects the model: tell the user, go one
+  tier down, suggest `/smithy:calibrate`.
+- `effort` is not a parameter. Put the effort banner at the top of the
+  prompt. The banner text lives in `${CLAUDE_PLUGIN_ROOT}/defaults/models.json` → `effort_banners`;
+  `routing.sh --models` prints what is in force.
+- **Claude Code enforces this with a hook** (`route-guard.sh`): it fixes the
+  model and banner of every smithy dispatch to match config, and leaves a
+  `[smithy-route-guard]` note when it does. Treat a fix as a sign you
+  drifted. Do not re-dispatch around it. To change routing, use
+  `/smithy:calibrate`. The only per-task override: a line
+  `smithy-role: <role>` in the brief (a role, never a raw model).
+- The hook REPORTS but cannot fix two cases: a routed model this harness
+  won't accept, and a config whose `harness` is not the one running. Both →
+  `/smithy:calibrate`.
+- Off Claude Code (Codex) there are no hooks; follow this section by hand —
+  see `${CLAUDE_PLUGIN_ROOT}/references/harness.md`.
 
-- Pass `model` as the Agent tool's per-dispatch `model` parameter. It overrides
-  the agent's frontmatter default. If `model=inherit`, omit the parameter.
-- Model tiers, cheapest to most capable — Claude Code: `haiku` < `sonnet` <
-  `opus` < `fable`; Codex (GPT-5.6): `luna` < `terra` < `sol`, plus explicit
-  older ids (`gpt-5.5`, `gpt-5.4`, …). routing.sh translates between the
-  families per `${CLAUDE_PLUGIN_ROOT}/references/harness.md`. Availability
-  depends on the account — if a dispatch is rejected, tell the user, fall
-  back one tier, and suggest `/smithy:calibrate`.
-- `effort` is NOT a dispatch parameter. Prepend the matching banner to the
-  subagent prompt:
-
-| effort | banner to prepend |
-|---|---|
-| low | "Effort: LOW. Be brief and mechanical. No exploration beyond the brief." |
-| medium | "Effort: MEDIUM. Think through edge cases before acting." |
-| high | "Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one." |
-| xhigh | "Effort: XHIGH. Think very hard. Explore the solution space broadly before narrowing, and justify the paths you did not take." |
-| max | "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing." |
-
-The banner strings above are a copy for reading. The SOURCE OF TRUTH is
-`defaults/models.json` → `effort_banners` (overridable in
-`$SMITHY_HOME/models.json`); `scripts/routing.sh --models` and
-`scripts/route-guard.sh table` print what is actually in force.
-
-### This section is hook-enforced, not advisory
-
-Under Claude Code a PreToolUse hook (`scripts/route-guard.sh`) inspects every
-smithy subagent dispatch and REWRITES it to match the routing table: it injects
-or corrects the `model` parameter and strips/prepends the effort banner. You
-will see a `[smithy-route-guard]` note in context when it corrects something.
-
-Treat a correction the way you treat a guard.sh block — the system working, and
-a signal you drifted. **Do not** re-dispatch to "get around" it, and do not
-argue the routing at dispatch time: the model and effort for a role are config
-(`routing.<role>.model` / `.effort`), changed with `/smithy:calibrate` and
-nowhere else. If a task genuinely needs a different role's routing, say so and
-put `smithy-role: <role>` on its own line in the brief — that is the only
-sanctioned override, and it selects a ROLE, never a raw model.
-
-Two cases the hook reports but cannot fix, both meaning "your config can't
-dispatch here": a routed model this harness won't accept as a dispatch value
-(a raw id like `claude-opus-9-9`), and a config whose `harness` isn't the one
-running. Both need `/smithy:calibrate`; the effort banner is still enforced.
-
-Off Claude Code there are no hooks, so this section is advisory again — see
-`references/harness.md`.
-
-## 2. Hand over files, not text
+## 2. The prompt holds paths, not text
 
 The dispatch prompt contains ONLY:
 
-1. The effort banner.
-2. Absolute paths to: the brief/context file, `${CLAUDE_PLUGIN_ROOT}/references/creed.md`,
-   and the report output path the agent must write to.
-3. One sentence naming the job and unit (e.g. "Job user-auth, task 3").
+1. the effort banner;
+2. absolute paths to: the brief, `${CLAUDE_PLUGIN_ROOT}/references/creed.md`, and the report file
+   the agent must write;
+3. one line naming the job and unit ("Job user-auth, task 3").
 
-Never paste the brief's contents, prior reports, or conversation history into
-the prompt. Never let the agent return the full report inline — it writes the
-report file and returns only: status, one-line summary, concerns.
+Never paste a brief, a report or chat history into a prompt. The agent
+writes its report to the file and returns only: status, one-line summary,
+concerns.
 
-## 3. Brief template (written by blueprint/anneal/test skills)
+## 3. The brief
 
-Every brief and report opens with the smithy envelope — the full contract is
-`${CLAUDE_PLUGIN_ROOT}/references/envelope.md` (read it once per session).
-**Controller rule:** copy every unresolved `key_facts`/`concerns` item from
-consumed reports forward into the next brief's envelope.
+Every brief and report starts with the envelope (`${CLAUDE_PLUGIN_ROOT}/references/envelope.md`).
+**Carry forward:** copy every open `key_facts` / `concerns` item from the
+reports you used into the next brief's envelope.
+
+Before writing briefs, do ONE lookup (creed §10) on the files and topic, and
+put what matters (past decisions, past bugs, callers) into `key_facts` with
+its source (`claude-mem #1234`, `file:line`).
 
 ```markdown
 ---smithy
@@ -102,163 +73,133 @@ kind: brief
 job: <slug>
 unit: task-N
 key_facts:
-  - <carried forward from prior reports — or empty list []>
+  - <carried forward or from the lookup — or []>
 concerns: []
 ---
 # Task N: <title>
 ## Context files (read these, nothing else)
 - path/to/file.ts — why it matters
 ## Requirements
-- <numbered, testable requirements>
+1. <observable behavior: "returns X when Y", "exits 64 on bad input">
 ## Verify
 - `<command>` → expected: <output/behavior>
 ## Commit message
 <type>: <description>
-## Persona (optional — selection per ${CLAUDE_PLUGIN_ROOT}/references/persona-modes.md)
-- <persona file path(s), max per the mode table — e.g. masters/engineer.md + masters/security.md>
+## Persona (optional — see references/persona-modes.md)
+- references/personas/masters/engineer.md
 ## Report
-Write your report to: $SMITHY_MEM/jobs/<slug>/reports/task-N-impl.md
-Open it with a smithy envelope (kind: impl-report) per your agent
-instructions, then the body with `Status: <STATUS>` as its first line.
-Status MUST be one of: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+Write your report to: <memory>/jobs/<slug>/reports/task-N-impl.md
 ```
 
-## 4. Status vocabulary and controller responses
+TDD tasks get extra lines in the brief — the exact text is in
+`/smithy:jig` (skills/jig/SKILL.md § Brief lines), the one place TDD
+rules live.
 
-| Status | Meaning | Controller response |
+## 4. Statuses
+
+| Status | Meaning | What the controller does |
 |---|---|---|
-| DONE | All requirements met, verify commands ran green | Proceed to review |
-| DONE_WITH_CONCERNS | Done, but concerns listed | Triage each concern before proceeding |
-| NEEDS_CONTEXT | Blocked on a specific question | Answer it (or ask the user), re-dispatch |
-| BLOCKED | Cannot proceed (env, permissions, contradiction) | Resolve or escalate to user; consider model bump |
+| DONE | requirements met, checks green, self-check passed | next task |
+| DONE_WITH_CONCERNS | done, with worries listed | read the report; sort each concern (blocking → fix now; other → carry to the final review) |
+| NEEDS_CONTEXT | one exact question | answer from spec/plan, or ask the user; re-dispatch with the answer |
+| BLOCKED | cannot proceed (env, permission, contradiction) | fix the cause or ask the user; maybe one model tier up |
 
-Per-task reports are TRANSIENT: they exist for machine-read status, review
-packages, and fix cycles — at forge exit they are consolidated into ONE
-`reports/forge-report.md` and the per-task files are deleted.
+Read status from the envelope: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/envelope.sh get <report> status`.
+**Broken or missing envelope** (and no `Status:` line) → treat as
+DONE_WITH_CONCERNS: read the full report, and mention the format problem on
+the next dispatch. Never assume DONE.
 
-Read a report's status from its envelope:
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/envelope.sh get <report> status`.
+## 5. Review — a self-check per task, ONE review per job
 
-**Defensive rule:** if a report's envelope is missing/unparseable (and no
-`Status:` body line rescues it), treat it as DONE_WITH_CONCERNS — read the
-full report before proceeding, and note the format violation when
-re-dispatching that agent. Never crash the pipeline on a malformed report;
-never assume it means DONE.
+```
+task 1 ─▶ agent: build → verify → SELF-CHECK → commit ─┐
+task 2 ─▶ agent: build → verify → SELF-CHECK → commit ─┼─▶ all tasks done
+task 3 ─▶ agent: build → verify → SELF-CHECK → commit ─┘          │
+                                                                  ▼
+              ONE inspector over the whole job:  BASE ────────▶ HEAD
+                                                                  │
+                         controller judges findings → fix round(s) → re-review the fix only
+```
 
-## 4b. TDD variant (jigsmith)
+**Self-check (inside every implementation agent, no extra dispatch).** Each
+forger/jigsmith ends with a short checklist in its report: each requirement
+→ `file:line`; only brief files touched; verify commands green; no debug
+code or stray TODOs; (TDD) `tdd-snap.sh verify` line is `OK`. A failed
+item → the agent fixes it before reporting, or reports DONE_WITH_CONCERNS.
 
-When `implementation.tdd` resolves to TDD for a task (see `/smithy:jig`):
-- The brief gains: `TDD mode: write the failing test FIRST for each
-  requirement (RED), then the minimal implementation (GREEN).`
-- The jigsmith's report adds a **TDD evidence** section: per requirement,
-  verbatim RED output, verbatim GREEN output, and the stage evidence.
-- NEEDS_CONTEXT on an untestable requirement is a brief defect: fix the brief
-  (blueprint) rather than pressuring the agent to implement without a jig.
+**Final review (once, from the main session, after ALL tasks finish).**
 
-Three config keys shape HOW the loop runs. Read all three through
-`config.sh get` (never a raw config file — that misses the global layer):
+1. Build one package from the JOB base to HEAD, with the plan as the brief:
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh build <memory>/jobs/<slug>/plan.md <memory>/jobs/<slug>/reports/review-pkg.md <memory>/jobs/<slug>/reports/`
+   The third argument is the reports FOLDER (`forge-report.md` does not
+   exist yet at review time). Standalone with no recorded base: add
+   `--base <ref>` right after `build`.
+2. Dispatch ONE `inspector` (role `review`). Its prompt must include:
+   **"Do Not Trust the Reports — the implementers' claims are unverified.
+   Verify each one against the diff and with read-only checks."** Name the
+   TDD commits mode if TDD ran, so it checks the right evidence.
+3. The inspector gives two verdicts, each `APPROVED|REJECTED`:
+   spec compliance (per task and requirement) and code quality (findings
+   with `file:line`, severity Critical/High/Medium/Low, confidence 1–10).
+4. You judge the findings (see `/smithy:inspect` § Judging findings) before
+   acting on them.
 
-| Key | Values | Effect on the brief |
-|---|---|---|
-| `implementation.tdd_level` | `minimal` \| `balanced` \| `max` | how many tests each requirement earns |
-| `implementation.tdd_commits` | `git` \| `local` | whether each stage is committed |
-| `implementation.max_fix_cycles` | int (default 2) | controller review→fix budget, §6 |
+## 6. Fix rounds and escalation
 
-**`tdd_level`** — append the matching line to the brief. The loop ordering
-never changes; only the breadth of what RED covers:
+- REJECTED → one fix round: re-dispatch the agent for each affected task
+  with the review report path added to its brief. Record the HEAD before
+  the round; after it, review ONLY the fix diff (`--base <that sha>`, with
+  the reports folder `<memory>/jobs/<slug>/reports/` as the third argument).
+- Budget: `implementation.max_fix_cycles` rounds per job
+  (`config.sh get implementation.max_fix_cycles`, default 2; `0` = never
+  auto-fix, go straight to the user). Budget spent → stop, show both review
+  reports, and say why you think it is stuck.
+- Same NEEDS_CONTEXT question twice → the user answers it.
+- BLOCKED again → one model-tier step up for the retry, then the user.
 
-| level | brief line |
-|---|---|
-| minimal | "TDD level: MINIMAL. One test per requirement — the primary behaviour, plus the single failure mode that would most likely ship a bug. Do not enumerate edge cases; the bar is 'the software demonstrably works'." |
-| balanced | "TDD level: BALANCED. One test per requirement's primary behaviour, plus its realistic edge cases and error paths. Skip combinatorial permutations." |
-| max | "TDD level: MAX. Exhaustive: primary behaviour, boundaries, error paths, invariants, and adversarial cases (persona hunt-lists become RED cases). Prefer more small tests over fewer broad ones." |
+## 7. Parallel batches (worktrees)
 
-**`tdd_commits`** — this one changes what counts as EVIDENCE, so the
-controller's verification step changes with it:
+Tasks marked `∥ batch-X` in the plan (blueprint proved they touch different
+files) MAY run at the same time. **The user decides, once per batch.**
 
-| value | brief line | how the controller verifies ordering |
-|---|---|---|
-| git | "TDD commits: GIT. Commit each stage — `test:` at RED, `feat:`/`fix:` at GREEN, `refactor:` if you refactor." | `git log --oneline <base>..HEAD` — `test:` precedes its `feat:`/`fix:` per requirement. Machine-checkable, independent of the agent's own account. |
-| local | "TDD commits: LOCAL. Do NOT commit. Leave every change in the working tree, and record each stage in the stage log named in your Report section." | Read the stage log + the report's verbatim RED/GREEN blocks, and diff the working tree. |
+- Before the batch, re-check the plan's disjointness evidence against the
+  files as they are NOW. Any overlap → run that batch one task at a time
+  and tell the user why.
+- The question to the user includes the plan's one-line disjointness
+  evidence.
 
-`local` is the right choice when the user does not want stage commits in the
-history, when no commit grant exists, or inside a scratch worktree that will be
-squashed anyway. **Be honest about its cost:** `git log` ordering is the only
-TDD evidence the controller does not have to take on trust, and `local` removes
-it — the inspector is then reviewing the agent's own account of itself. Default
-to `git`; when a user picks `local`, say this once and move on.
-In `local` mode forge's commit-grant precondition does not apply (nothing
-commits), and the stage log lives at
-`$SMITHY_MEM/jobs/<slug>/reports/raw/task-N-tdd-stages.md`.
+```
+           ┌─ worktree task-2 ─ agent ─ self-check ─┐
+integrate ─┤                                         ├─ absorb ─▶ integration branch
+           └─ worktree task-3 ─ agent ─ self-check ─┘                    │
+                       run the tasks' checks + test suite HERE ◀─────────┘
+                                         │ green
+                                         ▼
+                           land on the working branch ─▶ (final review later)
+```
 
-## 4c. Parallel dispatch (worktree isolation)
+- `worktree.sh integrate <job>` first; `worktree.sh create <job> <task>` per
+  task (it also opens a state lane, so ledgers never collide); confirm the
+  lanes opened with `lane.sh list` before dispatching; send ALL batch
+  dispatches in ONE message; each agent works only in its worktree; reports
+  go to the main repo's memory folder (absolute paths).
+- TDD tasks: run `tdd-snap.sh verify <slug> <unit>` INSIDE the task's
+  worktree (cd there) before `absorb`/`remove` — run from the main worktree
+  it fails.
+- When each agent is DONE: `worktree.sh absorb <job> <task>` into the
+  integration branch, then `worktree.sh remove <path> --force`.
+- Run the batch's verify commands and the test suite in the integration
+  worktree. Failure → `/smithy:anneal` there; the working branch stays clean.
+- Green → `worktree.sh land <job>`. A merge conflict means the batch was not
+  really separate: stop, tell the user which files, re-run that task alone.
+- After landing: `lane.sh merge-all` (it also merges the
+  `<job>-integration` lane that `worktree.sh integrate` opens); rolled-back
+  work → `lane.sh abandon <lane>`. Then rewrite STATE.md yourself.
+- Always clean up at batch end: `worktree.sh clean <job>`. Worktrees the
+  USER made are never removed — ask.
+- Nothing is pushed. Max one batch at a time, ≤4 worktrees.
 
-Tasks marked `∥ batch-X` in the plan (blueprint proved them disjoint) MAY
-run concurrently — **the user chooses per batch** (parallel vs sequential;
-ask once, with the disjointness evidence). When parallel:
+## 8. Ledger
 
-- `worktree.sh integrate <job>` first — parallel work merges into an
-  INTEGRATION branch, is verified there, and only then lands on the working
-  branch (`worktree.sh land <job>`). The working branch never sees
-  unverified batch output.
-- `worktree.sh create <job> <task>` per task → path + branch
-  `smithy/<job>/<task>`; ALL batch agents dispatched in ONE message.
-- Each agent works ONLY in its worktree; reports go to the MAIN repo's
-  reports dir (absolute paths). Guard grants resolve to the main worktree
-  automatically.
-- **State is isolated by a LANE, automatically.** `worktree.sh create` opens a
-  state lane named `<job>-<task>` and drops a `.smithy-lane` marker in the
-  checkout, so `ledger.sh` run inside that worktree appends to
-  `$SMITHY_MEM/lanes/<job>-<task>/ledger.md` instead of the shared one. N
-  agents logging at once therefore cannot interleave the project ledger or
-  overwrite each other's STATE.md. Reads still return the lane's events
-  merged over the project's, so an agent resuming after compaction sees the
-  whole history. The agent needs to know nothing about any of this.
-- **Lanes are merged after the batch LANDS, not when a worktree is removed.**
-  `lane.sh merge <lane>` folds a lane's events into the project ledger in
-  timestamp order and appends its decisions; `lane.sh merge-all` does every
-  lane at once. Work that was rolled back gets `lane.sh abandon` instead —
-  its events never enter the ledger. `worktree.sh remove` deliberately does
-  neither: it reports the unmerged lane and leaves the choice to you, because
-  a removed checkout is disposable and a discarded event log is not.
-- Everything stays LOCAL: task/integration branches are never pushed to
-  origin unless the user explicitly asks (each push = its own yes + token).
-- Review the branch (`review-package.sh build ... <branch>`) BEFORE
-  absorbing; `worktree.sh absorb` merges into integration; a conflict
-  aborts cleanly and means the batch was mis-marked — escalate, don't
-  hand-resolve.
-- **Smithy-created worktrees are ALWAYS removed when their task finishes**
-  (`remove --force` post-absorb; `clean <job>` at batch end, integration
-  included). Worktrees the USER created are never auto-removed — the script
-  refuses them; ask the user: auto-clear or leave.
-
-## 5. Review discipline
-
-- Record BASE before dispatching a forger:
-  `bash ${CLAUDE_PLUGIN_ROOT}/scripts/review-package.sh record-base`
-- Build the package from BASE..HEAD (never `HEAD~1` — it silently drops all
-  but the last commit):
-  `review-package.sh build <brief> <out> [impl-report]`
-- The reviewer reads the package file. Its prompt must include:
-  **"Do Not Trust the Report — the forger's claims are unverified.
-  Verify each one against the diff and by running read-only checks."**
-- Two verdicts, each `APPROVED|REJECTED`: (1) spec compliance, per-requirement;
-  (2) code quality, findings with `file:line`, severity
-  Critical/High/Medium/Low, confidence 1–10.
-
-## 6. Retry and escalation
-
-- REJECTED review → re-dispatch the forger with the review report path added
-  to the brief. The budget is `implementation.max_fix_cycles` per unit
-  (`bash ${CLAUDE_PLUGIN_ROOT}/scripts/config.sh get implementation.max_fix_cycles`;
-  default 2, applies to forger AND jigsmith alike); then escalate to the user
-  with both reports. A budget of 0 means "never auto-fix — escalate on the
-  first REJECTED".
-- NEEDS_CONTEXT twice on the same question → the question goes to the user.
-- Repeated BLOCKED → consider one model-tier bump (e.g. sonnet→opus) for the
-  retry, then escalate.
-
-## 7. Ledger
-
-After every dispatch resolves:
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append <phase> <job> <unit> <STATUS> <report-path>`
+After each dispatch resolves:
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.sh append <skill> <slug> <unit> <STATUS> <report-path>`

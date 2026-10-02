@@ -3,5 +3,5 @@ description: "Create a deliberate UI/UX design system with visual previews → t
 argument-hint: "[same arguments as /smithy:pattern]"
 ---
 
-This command is a technical alias. Invoke the `smithy:pattern` skill with the
-Skill tool NOW and follow it exactly. Arguments to pass through: $ARGUMENTS
+This command is a short name (an alias). Run the `smithy:pattern` skill with
+the Skill tool NOW and follow it exactly. Pass these arguments through: $ARGUMENTS

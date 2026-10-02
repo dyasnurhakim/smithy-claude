@@ -51,21 +51,32 @@ AGENTS.md), THIS file is your bootstrap. Today's harness rules:
 
 ## Working on smithy itself
 
-Bash tests: `tests/guard-matrix.sh`, `tests/worktree-matrix.sh`,
-`tests/routing-matrix.sh`, `tests/paths-matrix.sh`, `tests/lane-matrix.sh`,
-`tests/route-guard-matrix.sh` — all must stay green.
+Tests: every `tests/*.sh` must stay green — run them all with
+`for t in tests/*.sh; do bash "$t" >/dev/null 2>&1 && echo "ok $t" || echo "FAIL $t"; done`.
+`tests/skill-lint.sh` checks the prompt files: the shared SKILL.md layout
+(`references/skill-shape.md`), size, that every referenced file exists, and
+that the three manifests agree on the version.
 `scripts/paths.sh` is sourced by the PreToolUse guard hook, so it must stay pure
 bash for resolution rules 1-4 (no interpreter spawn) and must never enable
 `errexit` when sourced.
 
-Two PreToolUse hooks, with opposite failure modes — keep them that way:
-`guard.sh` (Bash) BLOCKS on doubt, because the risk is a destroyed repo, and so
-it must stay `SMITHY_PATHS_FAST`. `route-guard.sh` (subagent dispatch) FAILS
-OPEN, because the risk is a slightly-wrong model and a dead dispatch is worse;
-it runs rarely enough to afford full path resolution. Effort-banner text is
-registry DATA (`defaults/models.json` → `effort_banners`), never a literal in a
-script — `references/dispatch.md` §1 is a reading copy of it.
+Three PreToolUse hooks, each failing in a different direction on purpose:
+
+| Hook | Matcher | When unsure | Why |
+|---|---|---|---|
+| `guard.sh` | Bash | BLOCK | the risk is a destroyed repo; must stay `SMITHY_PATHS_FAST` |
+| `route-guard.sh` | Task/Agent | let it through | the risk is a slightly wrong model; a dead dispatch is worse. Rare, so it can afford full path resolution |
+| `mcp-guard.sh` | `mcp__.*` | ASK the user | blocking breaks real main-session writes; allowing makes agent writes silent. Never says "allow", so normal permissions still apply. Pure bash (`SMITHY_PATHS_FAST`) |
+
+Effort-banner text is registry DATA (`defaults/models.json` →
+`effort_banners`), never a literal in a script or a reference file.
+
+TDD proof is `scripts/tdd-snap.sh`: git tree objects from a throw-away index,
+never commits or refs (the guard's `\bcommit\b` rule matches `commit-tree`,
+and no ref means nothing to clean up). Keep it that way.
 
 SKILL.md budget ≤300 lines. Skill descriptions are YAML-quoted (they contain
 colons). Version bumps touch `.claude-plugin/plugin.json`,
 `.claude-plugin/marketplace.json`, and `.codex-plugin/plugin.json` together.
+Everything smithy writes — prompts, comments, script messages — follows creed
+§9: simple English, short but complete, a picture where it helps.

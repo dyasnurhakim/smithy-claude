@@ -1,28 +1,28 @@
 #!/usr/bin/env bash
-# config.sh — read/write smithy config across its three layers.
+# config.sh — read and write smithy config. Config comes in three layers.
 #
-#   config.sh get <dotted.key>                 effective value (exit 1 if unset)
-#   config.sh source <dotted.key>              which layer supplied it
-#   config.sh layers                           the three layer files + existence
+#   config.sh get <dotted.key>                 the value in effect (exit 1 if not set)
+#   config.sh source <dotted.key>              which layer gave that value
+#   config.sh layers                           the three layer files, and which exist
 #   config.sh set global  <dotted.key> <value> write the GLOBAL layer (all projects)
 #   config.sh set project <dotted.key> <value> write THIS project's layer
-#   config.sh show global|project              print that layer's file verbatim
+#   config.sh show global|project              print that layer's file as it is
 #   config.sh memory-location [repo|external|ask]
-#                                              read/set the global default for
+#                                              read or set the global default for
 #                                              where NEW projects keep memory
 #
-# Layers, lowest precedence first:
-#   defaults  <plugin>/defaults/config.json      never edited per project
-#   global    $SMITHY_HOME/config.json           applies to every project
-#   project   <memory-dir>/config.json           this project only
+# Layers — a higher layer wins over the ones below it:
+#   project   <memory-dir>/config.json           this project only         (wins)
+#   global    $SMITHY_HOME/config.json           every project
+#   defaults  <plugin>/defaults/config.json      never edited per project  (base)
 #
-# Values are parsed as JSON when possible, else taken as a string:
+# A value is read as JSON when it parses, else as a plain string:
 #   config.sh set project gates.pause_between_phases false
 #   config.sh set global  routing.review.model flagship
 #   config.sh set project testing.skip '["proof","hone"]'
 #
-# Writes are sparse: setting a key to the exact value the layer below already
-# provides PRUNES the key instead of duplicating it.
+# Writes stay small: setting a key to the exact value the layer below already
+# gives REMOVES the key instead of copying it.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,7 +66,7 @@ case "${1:-}" in
       project) f="$SMITHY_PROJECT_CONFIG" ;;
       *) echo "usage: config.sh show global|project" >&2; exit 2 ;;
     esac
-    if [ -f "$f" ]; then echo "# $f"; cat "$f"; else echo "# $f (does not exist — nothing overridden)"; fi ;;
+    if [ -f "$f" ]; then echo "# $f"; cat "$f"; else echo "# $f (does not exist — no overrides)"; fi ;;
   memory-location)
     if [ $# -eq 1 ]; then
       loc="$(cfg get memory.location 2>/dev/null)" || loc=""

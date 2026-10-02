@@ -1,38 +1,42 @@
 #!/usr/bin/env bash
-# worktree.sh — isolated git worktrees for smithy's parallel task execution.
+# worktree.sh — separate git worktrees (extra checkouts of the same repo) so
+# smithy can run tasks in parallel without touching each other's files.
+#
+#   task branches ──absorb──▶ integration branch ──(verify)──land──▶ working branch
+#   smithy/<job>/<task>        smithy/<job>/integration               (main worktree)
 #
 #   worktree.sh create <job> <task> [base-ref]
 #       New worktree + branch smithy/<job>/<task> from base-ref (default HEAD),
-#       at ../.smithy-wt-<repo>/<job>-<task>. Drops a .smithy-worktree marker
-#       (that marker is what authorizes auto-removal). Prints the path.
-#       ALSO opens a state lane named <job>-<task> and drops a .smithy-lane
-#       marker, so smithy scripts run inside the worktree write their ledger
-#       and STATE.md into that lane instead of the shared project ones. Code
-#       isolation without state isolation only relocates the collision.
+#       at ../.smithy-wt-<repo>/<job>-<task>. Writes a .smithy-worktree marker
+#       (only a worktree with this marker may be removed by a script). Prints
+#       the path. ALSO opens a state lane named <job>-<task> and writes a
+#       .smithy-lane marker, so smithy scripts run inside the worktree write
+#       their ledger and STATE.md to that lane, not to the shared project files.
+#       Separate code without separate state only moves the clash elsewhere.
 #   worktree.sh integrate <job> [base-ref]
 #       Create the INTEGRATION worktree + branch smithy/<job>/integration.
-#       Parallel task branches are absorbed here first, verified, and only
-#       then landed onto the working branch.
+#       Parallel task branches are absorbed here first and checked; only then
+#       are they landed on the working branch.
 #   worktree.sh absorb <job> <task>
 #       Merge branch smithy/<job>/<task> (--no-ff) into the integration
-#       worktree when one exists, else into the MAIN worktree's current
-#       branch. Conflict -> aborts the merge, exit 1 (a conflict means the
-#       parallel batch was NOT disjoint — escalate).
+#       worktree if it exists, else into the MAIN worktree's current branch.
+#       On a conflict: abort the merge, exit 1. A conflict means the tasks in
+#       the parallel batch touched the same code — escalate to the user.
 #   worktree.sh land <job>
 #       From the MAIN worktree: merge smithy/<job>/integration into the
-#       current (working) branch after integration verification passed.
-#   worktree.sh remove <path>
-#       Remove a worktree smithy created (marker required — refuses user
-#       worktrees) and delete its branch with -d (fails if unmerged: absorb
-#       first or escalate; never -D).
+#       current (working) branch, once the integration checks passed.
+#   worktree.sh remove <path> [--force]
+#       Remove a worktree smithy made (the marker is required — user worktrees
+#       are refused) and delete its branch with -d. -d fails if the branch is
+#       not merged: absorb it first or escalate. Never -D.
 #   worktree.sh clean <job>
-#       Remove ALL marked worktrees of a job (post-batch cleanup).
+#       Remove ALL marked worktrees of a job (cleanup after a batch).
 #   worktree.sh list
 #
-# Lanes are NOT merged by this script. Removing a checkout is disposable;
-# discarding a lane's ledger events is not, and the right call differs (landed
-# work -> `lane.sh merge`, rolled-back work -> `lane.sh abandon`). remove/clean
-# report unmerged lanes and leave the decision to the controller.
+# This script does NOT merge lanes. A checkout can be thrown away; a lane's
+# ledger events cannot. And the right action differs: landed work ->
+# `lane.sh merge`, rolled-back work -> `lane.sh abandon`. So remove/clean only
+# report unmerged lanes and leave the choice to the controller.
 set -euo pipefail
 
 MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
@@ -42,16 +46,12 @@ MARKER=".smithy-worktree"
 LANE_MARKER=".smithy-lane"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Every worktree gets its own STATE LANE as well as its own checkout — code
-# isolation without state isolation just moves the collision from the files to
-# the ledger. Best-effort: a project whose memory dir is not initialised yet
-# still gets a working worktree, it just shares the project state as before.
-# The markers are per-checkout scratch and must never reach a commit. Without
-# this, an agent's `git add -A` sweeps them into its task branch and `absorb`
-# then merges that scratch onto the working branch. info/exclude lives in the
-# git COMMON dir (shared by every worktree, never committed, not the user's
-# .gitignore) — which is exactly the right scope: these files should be
-# untracked everywhere in the repo, always.
+# The marker files are scratch for one checkout and must never reach a commit.
+# Without this, an agent's `git add -A` puts them in its task branch, and
+# `absorb` then merges them onto the working branch. info/exclude lives in the
+# git COMMON dir: shared by every worktree, never committed, and not the
+# user's .gitignore. That is the right scope — these files should be untracked
+# everywhere in the repo, always.
 ensure_markers_excluded() {
   local common exclude pat
   common="$(git -C "$MAIN_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
@@ -62,6 +62,10 @@ ensure_markers_excluded() {
   done
 }
 
+# Every worktree gets its own STATE LANE as well as its own checkout. Separate
+# code without separate state just moves the clash from the files to the
+# ledger. Best effort: if the project's memory folder is not set up yet, the
+# worktree still works — it just shares the project state as before.
 start_lane() { # start_lane <lane-name> <worktree-path> <job>
   local lane="$1" path="$2" job="$3"
   if ! bash "$SCRIPT_DIR/lane.sh" start "$lane" --worktree "$path" --job "$job" >/dev/null 2>&1; then
@@ -103,14 +107,14 @@ case "${1:-}" in
     job="$2"; task="$3"
     branch="smithy/$job/$task"
     git -C "$MAIN_ROOT" rev-parse --verify -q "$branch" >/dev/null || { echo "worktree.sh: branch $branch not found" >&2; exit 1; }
-    # target: integration worktree when present, else the main worktree
+    # Merge into the integration worktree if it exists, else the main worktree.
     target="$MAIN_ROOT"; target_name="working branch"
     if [ -d "$WT_BASE/$job-integration" ]; then
       target="$WT_BASE/$job-integration"; target_name="integration branch"
     fi
     if ! git -C "$target" merge --no-ff -m "merge: $branch (smithy parallel task)" "$branch"; then
       git -C "$target" merge --abort || true
-      echo "worktree.sh: MERGE CONFLICT absorbing $branch into the $target_name — the batch was not disjoint. Merge aborted; escalate to the user." >&2
+      echo "worktree.sh: MERGE CONFLICT absorbing $branch into the $target_name — tasks in the batch touched the same code. Merge aborted; escalate to the user." >&2
       exit 1
     fi
     echo "absorbed $branch into $target_name"
@@ -136,17 +140,17 @@ case "${1:-}" in
     fi
     branch="$(git -C "$path" branch --show-current 2>/dev/null || true)"
     lane="$(head -n 1 "$path/$LANE_MARKER" 2>/dev/null || true)"
-    rm -f "$path/$MARKER" "$path/$LANE_MARKER"   # untracked markers; drop pre-removal
+    rm -f "$path/$MARKER" "$path/$LANE_MARKER"   # untracked markers; delete them before the remove
     if ! git -C "$MAIN_ROOT" worktree remove "$path" 2>/dev/null; then
       if [ "$force" = "--force" ]; then
-        # authorized only AFTER a successful absorb — everything of value is merged
+        # Allowed only AFTER a successful absorb: everything of value is merged.
         git -C "$MAIN_ROOT" worktree remove --force "$path"
       else
         printf 'smithy-worktree (marker restored after failed remove)\n' > "$path/$MARKER"
         [ -n "$lane" ] && printf '%s\n' "$lane" > "$path/$LANE_MARKER"
         echo "worktree.sh: $path has uncommitted/untracked files:" >&2
         git -C "$path" status --short >&2
-        echo "worktree.sh: if the branch was absorbed and these are disposable, re-run with --force; otherwise escalate." >&2
+        echo "worktree.sh: if the branch was absorbed and these files can be thrown away, run again with --force; otherwise escalate." >&2
         exit 1
       fi
     fi
@@ -155,9 +159,9 @@ case "${1:-}" in
         echo "worktree.sh: branch $branch not fully merged — left in place (absorb it or escalate)" >&2
     fi
     echo "removed $path"
-    # The checkout is disposable; the lane's EVENTS are not. Removing a
-    # worktree must never silently discard them, and merging is a decision
-    # (a rolled-back batch wants `lane.sh abandon` instead) — so: report only.
+    # The checkout can be thrown away; the lane's EVENTS cannot. Removing a
+    # worktree must never quietly lose them. Merging is a choice (a rolled-back
+    # batch needs `lane.sh abandon` instead), so we only report.
     if [ -n "$lane" ] && [ -d "$(bash "$SCRIPT_DIR/paths.sh" mem)/lanes/$lane" ]; then
       echo "worktree.sh: state lane '$lane' is still unmerged — run 'scripts/lane.sh merge $lane' (or 'abandon' it if the work was discarded)" >&2
     fi
@@ -177,5 +181,5 @@ case "${1:-}" in
     git -C "$MAIN_ROOT" worktree list
     ;;
   *)
-    echo "usage: worktree.sh create|absorb|remove|clean|list" >&2; exit 2 ;;
+    echo "usage: worktree.sh create|integrate|absorb|land|remove|clean|list" >&2; exit 2 ;;
 esac

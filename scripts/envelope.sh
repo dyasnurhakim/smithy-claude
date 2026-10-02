@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# envelope.sh — read/validate the smithy YAML envelope at the top of a file.
+# envelope.sh — read and check the smithy envelope: a small YAML header at the
+# top of a brief or report.
 #
-#   envelope.sh get <file> <field>      -> scalar value (empty if absent)
+#   envelope.sh get <file> <field>      -> one value (empty if the field is missing)
 #   envelope.sh list <file> <field>     -> list items, one per line
-#   envelope.sh validate <file>         -> exit 0 ok / 1 invalid (+ reasons to stderr)
+#   envelope.sh validate <file>         -> exit 0 = ok, 1 = invalid (reasons on stderr)
 #
-# Envelope = lines between a first-line `---smithy` marker and the next `---`.
-# Flat schema only (scalars + one-level lists) — parsed without a YAML lib.
+#   ---smithy          <- must be line 1
+#   kind: brief
+#   key_facts:
+#     - ...
+#   ---                <- the envelope ends at the next `---`
+#
+# Flat fields only (single values + one-level lists), so no YAML library is needed.
 set -euo pipefail
 
-extract() { # extract <file> -> envelope body lines
+extract() { # extract <file> -> the lines inside the envelope
   awk 'NR==1 && $0!="---smithy" {exit 1} NR==1 {next} /^---$/ {exit} {print}' "$1"
 }
 
@@ -34,7 +40,8 @@ case "${1:-}" in
     fi
     env_body="$(extract "$f")" || { echo "envelope: no closing '---'" >&2; exit 1; }
     kind="$(echo "$env_body" | sed -n 's/^kind:[[:space:]]*//p' | head -1)"
-    # briefs travel light: artifacts/next_action optional (key_facts/concerns stay required)
+    # Briefs need less: artifacts and next_action are optional (key_facts and
+    # concerns are still required).
     if [ "$kind" = "brief" ]; then
       req_fields="schema kind job unit"; req_lists="key_facts concerns"
     else

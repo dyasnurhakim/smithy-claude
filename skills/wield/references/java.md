@@ -3,32 +3,34 @@
 ## API — Spring Boot
 
 - Prefer in-process: `MockMvc` (web layer) or `@SpringBootTest(webEnvironment
-  = RANDOM_PORT)` + `TestRestTemplate`/`WebTestClient` for full-stack flows.
-  Put QA flows in a scratch test class under `src/test/java` in a clearly
+  = RANDOM_PORT)` + `TestRestTemplate` / `WebTestClient` for full-stack flows.
+  Put QA flows in a scratch test class under `src/test/java`, in a clearly
   named `qa` package — ask before committing it.
-- Else run the real jar (`java -jar target/app.jar` or `./gradlew bootRun`),
-  poll the actuator/health or root URL for readiness, drive with curl scripts.
+- Or run the real jar (`java -jar target/app.jar` or `./gradlew bootRun`),
+  poll the actuator/health or root URL until it is ready, and drive it with
+  curl scripts.
 
 ## API — non-Spring
 
-- Run the real service per its README/Main class; drive with `curl` or
-  `java.net.http.HttpClient` scripts.
+- Run the real service as its README / Main class says; drive it with
+  `curl` or `java.net.http.HttpClient` scripts.
 
 ## Per endpoint flow
 
-- Happy path; validation failures (assert the 4xx AND the error body shape —
-  Spring's default error JSON vs custom advice matters); auth (401/403);
-  not-found; malformed JSON; wrong content-type.
+- Happy path; validation failures (check the 4xx AND the shape of the error
+  body — Spring's default error JSON vs custom advice matters); auth
+  (401/403); not-found; malformed JSON; wrong content-type.
 - Error responses must not leak stack traces or internals — a Whitelabel
   error page with a stack trace, or `"trace": "..."` in the body, = High.
-- Side-effect checks: after mutating calls, read back and assert state.
+- Side effects: after a call that changes data, read it back and check it.
 
 ## CLI
 
-- `java -jar tool.jar` invocations: valid args, invalid args (usage + nonzero
-  exit), `--help`, empty/huge stdin. Assert exit codes and stream separation.
+- `java -jar tool.jar` calls: valid args, invalid args (usage + nonzero
+  exit), `--help`, empty or huge stdin. Check exit codes, and that stdout
+  and stderr stay separate.
 
-## Console/log hygiene
+## Console / log hygiene
 
-- Watch the app log during flows: any unhandled-exception stack trace during
-  a nominal flow is at least High, even when the HTTP response looked fine.
+- Watch the app log during flows: an unhandled-exception stack trace during
+  a normal flow is at least High, even when the HTTP response looked fine.

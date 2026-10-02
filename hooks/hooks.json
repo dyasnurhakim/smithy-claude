@@ -29,6 +29,15 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/route-guard.sh\" hook"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/mcp-guard.sh\" hook"
+          }
+        ]
       }
     ]
   }

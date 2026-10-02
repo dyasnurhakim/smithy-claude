@@ -17,11 +17,11 @@
   "//10": "$SMITHY_HOME/models.json without touching a script. references/dispatch.md",
   "//11": "§1 documents these strings; THIS file is the source of truth for them.",
   "effort_banners": {
-    "low":    "Effort: LOW. Be brief and mechanical. No exploration beyond the brief.",
-    "medium": "Effort: MEDIUM. Think through edge cases before acting.",
-    "high":   "Effort: HIGH. Think hard. Enumerate hypotheses/alternatives before committing to one.",
-    "xhigh":  "Effort: XHIGH. Think very hard. Explore the solution space broadly before narrowing, and justify the paths you did not take.",
-    "max":    "Effort: MAX. Ultrathink. Exhaust alternatives; steelman the opposite conclusion before finalizing."
+    "low":    "Effort: LOW. Keep it short and mechanical. Do only what the brief says; do not explore beyond it.",
+    "medium": "Effort: MEDIUM. Think through the edge cases before you act.",
+    "high":   "Effort: HIGH. Think hard. List the possible explanations or options before you pick one.",
+    "xhigh":  "Effort: XHIGH. Think very hard. Look at many options before you narrow down, and say why you dropped the others.",
+    "max":    "Effort: MAX. Ultrathink. Try every option. Before you decide, make the strongest case for the opposite answer."
   },
 
   "harnesses": {

@@ -1,7 +1,7 @@
 ---
-description: "View/edit model+effort routing, TDD default, gates, review panel — with model availability probes (alias of smithy:calibrate)"
+description: "View or change smithy settings — model and effort per role, TDD settings, gates, review panel, memory location; tests a model before saving it (alias of smithy:calibrate)"
 argument-hint: "[same arguments as /smithy:calibrate]"
 ---
 
-This command is a technical alias. Invoke the `smithy:calibrate` skill with the
-Skill tool NOW and follow it exactly. Arguments to pass through: $ARGUMENTS
+This command is a short name (an alias). Run the `smithy:calibrate` skill with
+the Skill tool NOW and follow it exactly. Pass these arguments through: $ARGUMENTS
