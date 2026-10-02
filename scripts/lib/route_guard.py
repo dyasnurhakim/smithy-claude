@@ -258,11 +258,17 @@ def main(argv: list[str]) -> int:
         # Every failure below ends in a quiet exit 0: a guard that cannot
         # decide must never be the reason a dispatch dies.
         try:
-            if not os.path.isdir(os.environ.get("SMITHY_MEM", "")):
-                return 0  # not a smithy-managed project
             payload = json.load(sys.stdin)
             tool_input = payload.get("tool_input") or {}
             if not isinstance(tool_input, dict) or not tool_input.get("subagent_type"):
+                return 0
+            # A "smithy:*" dispatch IS smithy in use, so it is routed in every
+            # project — even one with no smithy memory folder yet (config then
+            # comes from the defaults + the global layer). A BARE name such as
+            # "inspector" is routed only in a smithy-managed project: elsewhere
+            # it may be the project's own agent that just shares the name.
+            managed = os.path.isdir(os.environ.get("SMITHY_MEM", ""))
+            if not managed and not str(tool_input["subagent_type"]).startswith("smithy:"):
                 return 0
             emit(*enforce(tool_input))
         except Exception as exc:  # noqa: BLE001 — failing open is the contract

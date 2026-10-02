@@ -68,7 +68,7 @@ case "${1:-}" in
     done
     echo
     echo "memory: $SMITHY_MEM ($SMITHY_MEM_SOURCE)"
-    [ -d "$SMITHY_MEM" ] || echo "NOTE: no memory folder — the hook does NOTHING in this project."
+    [ -d "$SMITHY_MEM" ] || echo "NOTE: no memory folder yet — smithy:* dispatches are still routed (defaults + global config); bare agent names are not."
     ;;
   ""|-h|--help)
     sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'

@@ -197,7 +197,7 @@ Agents and skills may use MCP tools (tools from servers you installed) to look t
 
 ## Hooks — three guards
 
-Prompt rules can be talked around; a hook's exit code cannot. Each hook fails in a different direction on purpose. All three act only in projects smithy manages. Your own `CLAUDE.md` rules still win over smithy wherever they conflict (creed §0).
+Prompt rules can be talked around; a hook's exit code cannot. Each hook fails in a different direction on purpose. `guard.sh` and `mcp-guard.sh` act only in projects smithy manages (a smithy memory folder exists). `route-guard.sh` acts on every `smithy:*` dispatch in any project: dispatching a smithy agent *is* using smithy. Your own `CLAUDE.md` rules still win over smithy wherever they conflict (creed §0).
 
 | Hook | Watches | When unsure | Does |
 |---|---|---|---|
@@ -211,7 +211,7 @@ Prompt rules can be talked around; a hook's exit code cannot. Each hook fails in
 - Destructive commands need your yes for that one command (`guard.sh allow-once` makes a one-use token): cloud deletes (`aws`, `gcloud`, `az`, `fly`, `heroku`, `vercel`), `terraform`/`pulumi`/`cdk destroy`, `docker rm|prune|compose down`, `kubectl delete`, `helm uninstall`, `DROP`/`TRUNCATE`/`DELETE` without `WHERE`, migration resets, `rm -rf` on absolute/`~`/`..` paths, `find -delete`, `rsync --delete`, `dd`, `mkfs`.
 - It targets destruction, not work: `DELETE … WHERE …`, `docker build`, `kubectl get`, `terraform plan` all pass.
 
-**route-guard.sh — routing that agents cannot ignore.** It reads each smithy dispatch, finds the role from the agent (forger/jigsmith → implementation, inspector → review, annealer → debugging, temperer → testing), and sets the model and the effort banner (a line in the prompt that sets how hard to think) to match config. Each fix is announced as `[smithy-route-guard] …`. On any error it lets the dispatch through: a slightly wrong model is better than a dead dispatch. `bash scripts/route-guard.sh table` shows what each agent will run as.
+**route-guard.sh — routing that agents cannot ignore.** It reads each smithy dispatch, finds the role from the agent (forger/jigsmith → implementation, inspector → review, annealer → debugging, temperer → testing), and sets the model and the effort banner (a line in the prompt that sets how hard to think) to match config. Each fix is announced as `[smithy-route-guard] …`. It works even in a project with no smithy memory folder yet (routing then comes from the defaults + your global config); there, agents with a bare name like `inspector` are left alone, since they may be the project's own. On any error it lets the dispatch through: a slightly wrong model is better than a dead dispatch. `bash scripts/route-guard.sh table` shows what each agent will run as.
 
 **mcp-guard.sh — MCP changes ask first.** It reads the tool name from the call (a real JSON parse, so text inside the tool's input cannot fool it). A "change" word (send, create, update, delete, resolve, …), a bare `query` or anything with `sql` (SQL can write), or no known word → Claude Code asks you. A read word (search, get, list, read, …) → it says nothing and your normal permissions decide. It never says "allow". In a run with no one to ask (`claude -p`), "ask" means the call is refused.
 

@@ -162,9 +162,16 @@ empty "null tool_input fails open" \
 g "unknown tool_input keys ride along"        '"isolation": "worktree"' \
   bash -c "printf '%s' '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"smithy:inspector\",\"prompt\":\"go\",\"isolation\":\"worktree\"}}' | $RG hook"
 
-echo "--- inactive outside a smithy-managed project ---"
-empty "no memory dir -> hook is a no-op" \
-  bash -c "SMITHY_MEM_DIR=$D/nonexistent-mem printf '%s' '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"smithy:inspector\",\"prompt\":\"go\"}}' | SMITHY_MEM_DIR=$D/nonexistent-mem $RG hook"
+echo "--- outside a smithy-managed project (no memory folder) ---"
+# Dispatching a smithy:* agent IS using smithy, so routing applies anywhere
+# (config = defaults + global). Bare names stay unchecked there: they may be
+# the project's OWN agents that merely share a name.
+g "smithy:* agent is routed with no memory dir" '"updatedInput"' \
+  bash -c "printf '%s' '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"smithy:inspector\",\"prompt\":\"go\"}}' | SMITHY_MEM_DIR=$D/nonexistent-mem $RG hook"
+empty "bare-name agent is left alone with no memory dir" \
+  bash -c "printf '%s' '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"inspector\",\"prompt\":\"go\"}}' | SMITHY_MEM_DIR=$D/nonexistent-mem $RG hook"
+empty "other agents are left alone with no memory dir" \
+  bash -c "printf '%s' '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"general-purpose\",\"prompt\":\"go\"}}' | SMITHY_MEM_DIR=$D/nonexistent-mem $RG hook"
 
 echo
 if [ $fails -eq 0 ]; then echo "route-guard matrix: ALL PASS"; else echo "route-guard matrix: $fails FAILURE(S)"; fi

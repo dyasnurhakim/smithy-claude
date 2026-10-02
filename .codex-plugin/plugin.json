@@ -1,6 +1,6 @@
 {
   "name": "smithy",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "Full dev pipeline: research, planning, TDD implementation, persona review panels, root-cause debugging, and QA/stress/perf testing — never assumes, asks or recommends.",
   "author": {
     "name": "Dyas Nuhakim S",

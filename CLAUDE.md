@@ -65,7 +65,7 @@ Three PreToolUse hooks, each failing in a different direction on purpose:
 | Hook | Matcher | When unsure | Why |
 |---|---|---|---|
 | `guard.sh` | Bash | BLOCK | the risk is a destroyed repo; must stay `SMITHY_PATHS_FAST` |
-| `route-guard.sh` | Task/Agent | let it through | the risk is a slightly wrong model; a dead dispatch is worse. Rare, so it can afford full path resolution |
+| `route-guard.sh` | Task/Agent | let it through | the risk is a slightly wrong model; a dead dispatch is worse. Rare, so it can afford full path resolution. Routes `smithy:*` dispatches in EVERY project (a smithy dispatch is smithy in use); bare agent names only in managed projects |
 | `mcp-guard.sh` | `mcp__.*` | ASK the user | blocking breaks real main-session writes; allowing makes agent writes silent. Never says "allow", so normal permissions still apply. Pure bash (`SMITHY_PATHS_FAST`) |
 
 Effort-banner text is registry DATA (`defaults/models.json` →

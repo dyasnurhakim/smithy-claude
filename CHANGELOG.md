@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.14.1 — unreleased
+
+Routing is now enforced for smithy agents in every project.
+
+```
+before: smithy:* dispatch ─▶ route-guard ─┬─ memory folder?  yes → corrected
+                                          └─ no  → NOT corrected (silent no-op)
+after:  smithy:* dispatch ─▶ route-guard ─▶ corrected in any project
+```
+
+- **The gap.** `route_guard.py` skipped every dispatch in a project with no
+  smithy memory folder. So when a session that had not run a smithy skill yet
+  dispatched `smithy:forger` (or any smithy agent), model and effort were not
+  enforced. Installs older than 0.13 had no route-guard at all.
+- **The fix.** A `smithy:*` dispatch is routed everywhere — dispatching a
+  smithy agent IS using smithy. With no project config, routing comes from the
+  defaults + the global layer (`$SMITHY_HOME/config.json`). Works outside a git
+  repo too. Still fails open on any error.
+- **Kept narrow on purpose.** A BARE agent name (`inspector`, `forger`) is
+  still routed only in smithy-managed projects: elsewhere it may be the
+  project's own agent that shares the name. `guard.sh` and `mcp-guard.sh` stay
+  managed-projects-only (they guard the project, not smithy's own agents).
+- Tests: `route-guard-matrix.sh` — the old "no-op without a memory folder" case
+  is replaced by three: `smithy:*` routed, bare name left alone, other agents
+  left alone.
+
 ## 0.14.0 — unreleased
 
 Cheaper TDD with a clean history, skills that work on their own, read-only
