@@ -116,6 +116,7 @@ Nothing else must run first.
 | `gates.pause_between_phases` | true / false | the pipeline stops for a yes between phases |
 | `gates.auto_fix_review_findings` | true / false | a standalone review may offer to fix Critical/High through `/smithy:strike` |
 | `testing.skip` | subset of [ring-test, wield, proof, hone] | test suites temper skips |
+| `mcp_guard.read_only_tools` | list of full MCP tool names, e.g. `["mcp__mysql-demo__mysql_query"]` | `mcp-guard` stops asking for these. List only tools that cannot change anything (e.g. SQL on a read-only login). The highest layer that sets the list wins; lists are not merged |
 | `review_panel` | auto · always · never | whether the guild panel runs after forge (auto/always) or is skipped (never). It is the costliest smithy step |
 | `memory.location` | repo · external · ask | **global only** — where NEW projects keep memory. To move THIS project's memory, see § Moving memory |
 

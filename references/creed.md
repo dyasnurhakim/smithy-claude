@@ -148,7 +148,8 @@ Rules:
   only reads. A tool that sends, creates, updates or deletes anything
   (Slack, Notion, issues, memory writes…) needs the user's confirmation
   first — even when the user's own rules name that tool. The `mcp-guard`
-  hook makes Claude Code ask for these automatically.
+  hook makes Claude Code ask for these automatically. A tool the user lists
+  by full name in `mcp_guard.read_only_tools` counts as a read.
 - **Small budget:** per skill run or agent task, at most 1 search, 1
   timeline, 3 full records. A graph query only for a structure question.
 - **A lookup is a lead, not a fact.** Trust order: the code and `git log` >

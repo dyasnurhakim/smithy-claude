@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.15.0 — unreleased
+
+`mcp-guard` can be told that a tool only reads.
+
+```
+before: mcp__mysql-demo__mysql_query ─▶ "*sql*" rule ─▶ ASK every call
+after:  listed in mcp_guard.read_only_tools ─▶ READ (normal permissions decide)
+```
+
+- **The gap.** Any tool with `sql` in its name asks, because SQL can write.
+  A SQL tool on a read-only login still asked on every query, so each
+  lookup waited for a click.
+- **The fix.** New config key `mcp_guard.read_only_tools`: a list of FULL
+  tool names. A listed tool is a read, checked before every other rule.
+  Exact match only: a short name, or the same tool on another server, still
+  asks. The highest layer that sets the list wins (lists are not merged).
+  Default `[]`. The ask message now names the key.
+- **Still fails safe.** A broken config, a non-list value or no python3 means
+  no list, and the old rules apply. The hook still never says "allow".
+- Still one python3 call per MCP call: the config read joined the JSON read.
+- Docs: README, creed §10, calibrate settings table.
+- Tests: `mcp-guard-matrix.sh` gains 12 allowlist cases (check and hook
+  mode, layer precedence, broken config).
+
 ## 0.14.1 — unreleased
 
 Routing is now enforced for smithy agents in every project.

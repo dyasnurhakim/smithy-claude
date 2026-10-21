@@ -146,5 +146,33 @@ out="$(cd "$SCRATCH/managed" && printf '%s' '{"tool_name":"mcp__x__send\\\"oops"
 if printf '%s' "$out" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then printf 'PASS  %s\n' "hook output stays valid JSON with odd characters"; else printf 'FAIL! hook output is not valid JSON: %s\n' "$out"; fails=$((fails + 1)); fi
 h none "spaces in the JSON are fine" '{ "tool_name" : "mcp__context7__get-library-docs" }'
 
+echo "--- read_only_tools allowlist (config) ---"
+# Exact full names only. The highest config layer that sets the list wins.
+mkdir -p "$SCRATCH/home"
+printf '%s' '{"mcp_guard":{"read_only_tools":["mcp__mysql-demo__mysql_query","mcp__hub__slack_send"]}}' > "$SCRATCH/home/config.json"
+ta() { got="$(cd "${3:-$SCRATCH/plain}" && SMITHY_HOME="$SCRATCH/home" bash "$G" check "$2")"
+  if [ "$got" = "$1" ]; then printf 'PASS  %-4s %s (allowlist)\n' "$got" "$2"
+  else printf 'FAIL! want=%s got=%s  %s (allowlist)\n' "$1" "$got" "$2"; fails=$((fails + 1)); fi; }
+ta READ "mcp__mysql-demo__mysql_query"
+ta ASK  "mcp__mysql-prod__mysql_query"      # same short name, other server
+ta ASK  "mcp__mysql-demo__mysql_execute"
+ta READ "mcp__hub__slack_send"              # listed = the user vouched for it
+t  ASK  "mcp__mysql-demo__mysql_query"      # no SMITHY_HOME list → unchanged
+printf '%s' '{"mcp_guard":{"read_only_tools":["mysql_query"]}}' > "$SCRATCH/home/config.json"
+ta ASK  "mcp__mysql-demo__mysql_query"      # a short name in the list never matches
+printf '%s' '{"mcp_guard":{"read_only_tools":"mcp__mysql-demo__mysql_query"}}' > "$SCRATCH/home/config.json"
+ta ASK  "mcp__mysql-demo__mysql_query"      # not a list → ignored
+printf '%s' 'not json' > "$SCRATCH/home/config.json"
+ta ASK  "mcp__mysql-demo__mysql_query" 2>/dev/null   # broken config → ASK
+printf '%s' '{"mcp_guard":{"read_only_tools":["mcp__mysql-demo__mysql_query"]}}' > "$SCRATCH/home/config.json"
+printf '%s' '{"mcp_guard":{"read_only_tools":[]}}' > "$SCRATCH/managed/docs/smithy/config.json"
+ta ASK  "mcp__mysql-demo__mysql_query" "$SCRATCH/managed"   # project list wins over global
+rm -f "$SCRATCH/managed/docs/smithy/config.json"
+ta READ "mcp__mysql-demo__mysql_query" "$SCRATCH/managed"
+out="$(cd "$SCRATCH/managed" && printf '%s' '{"tool_name":"mcp__mysql-demo__mysql_query","tool_input":{"sql":"SELECT 1"}}' | SMITHY_HOME="$SCRATCH/home" bash "$G" hook)"
+[ -z "$out" ] && printf 'PASS  %s\n' "hook: allowlisted tool says nothing" || { printf 'FAIL! hook asked for an allowlisted tool: %s\n' "$out"; fails=$((fails + 1)); }
+out="$(cd "$SCRATCH/managed" && printf '%s' '{"tool_name":"mcp__mysql-prod__mysql_query","tool_input":{}}' | SMITHY_HOME="$SCRATCH/home" bash "$G" hook)"
+echo "$out" | grep -q '"permissionDecision":"ask"' && printf 'PASS  %s\n' "hook: unlisted SQL tool still asks" || { printf 'FAIL! hook did not ask for an unlisted SQL tool\n'; fails=$((fails + 1)); }
+
 echo
 [ "$fails" -eq 0 ] && echo "ALL PASS" || { echo "$fails FAILED"; exit 1; }
